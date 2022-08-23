@@ -890,12 +890,8 @@ func systemScriptInit(l *lua.LState) {
 				for i, c := range sys.getPlayers() {
 					if c != nil {
 						p[i] = c
-						if sys.round == 1 {
+						if sys.round == 1 || c.roundsExisted() == 0 {
 							sys.gs.charList.add(c)
-						} else if c.roundsExisted() == 0 {
-							if !sys.gs.charList.replace(c, i, 0) {
-								panic(fmt.Errorf("failed to replace player: %v", i))
-							}
 						}
 						if c.roundsExisted() == 0 {
 							c.loadPalette()
