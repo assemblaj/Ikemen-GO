@@ -2533,23 +2533,11 @@ func (c *Compiler) screenBound(is IniSection, sc *StateControllerBase, _ int8) (
 		if !b {
 			sc.add(screenBound_movecamera, append(sc.iToExp(0), sc.iToExp(0)...))
 		}
-<<<<<<< HEAD
-		b = false
 		if err := c.stateParam(is, "stagebound", func(data string) error {
-			b = true
-=======
-		if err := c.stateParam(is, "stagebound", func(data string) error {
->>>>>>> upstream/master
 			return c.scAdd(sc, screenBound_stagebound, data, VT_Bool, 1)
 		}); err != nil {
 			return err
 		}
-<<<<<<< HEAD
-		if !b {
-			sc.add(screenBound_stagebound, sc.iToExp(0))
-		}
-=======
->>>>>>> upstream/master
 		return nil
 	})
 	return *ret, err
@@ -3929,7 +3917,7 @@ func (c *Compiler) mapSetSub(is IniSection, sc *StateControllerBase) error {
 					if len(mapParam) < 2 || mapParam[0] != '"' || mapParam[len(mapParam)-1] != '"' {
 						return Error("Not enclosed in \"")
 					}
-					mapName = mapParam[1:len(mapParam)-1]
+					mapName = mapParam[1 : len(mapParam)-1]
 				}
 			}
 			if len(value) > 0 {
@@ -4478,6 +4466,7 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 	})
 	return *ret, err
 }
+
 // Handles "createPlatform" parameters.
 func (c *Compiler) createPlatform(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*text)(sc), c.stateSec(is, func() error {
@@ -4674,6 +4663,7 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 	})
 	return *ret, err
 }
+
 // It's just a Null... Has no effect whatsoever.
 func (c *Compiler) null(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	return nullStateController, nil
