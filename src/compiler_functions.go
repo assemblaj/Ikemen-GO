@@ -2533,16 +2533,23 @@ func (c *Compiler) screenBound(is IniSection, sc *StateControllerBase, _ int8) (
 		if !b {
 			sc.add(screenBound_movecamera, append(sc.iToExp(0), sc.iToExp(0)...))
 		}
+<<<<<<< HEAD
 		b = false
 		if err := c.stateParam(is, "stagebound", func(data string) error {
 			b = true
+=======
+		if err := c.stateParam(is, "stagebound", func(data string) error {
+>>>>>>> upstream/master
 			return c.scAdd(sc, screenBound_stagebound, data, VT_Bool, 1)
 		}); err != nil {
 			return err
 		}
+<<<<<<< HEAD
 		if !b {
 			sc.add(screenBound_stagebound, sc.iToExp(0))
 		}
+=======
+>>>>>>> upstream/master
 		return nil
 	})
 	return *ret, err
@@ -3904,10 +3911,10 @@ func (c *Compiler) mapSetSub(is IniSection, sc *StateControllerBase) error {
 					return err
 				}
 				c.token = c.tokenizer(&mapParam)
-				if c.token == ":=" {
+				if c.token == "=" || c.token == ":=" {
 					value = strings.TrimSpace(mapParam)
 				} else {
-					return Error("Missing ':' before '='")
+					return Error("Invalid operator: " + c.token)
 				}
 			} else {
 				b := false

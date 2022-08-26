@@ -5265,7 +5265,7 @@ func (sc envShake) Run(c *Char, _ []int32) bool {
 		case envShake_phase:
 			sys.envShake.phase = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180) * c.localscl
 		case envShake_freq:
-			sys.envShake.freq = exp[0].evalF(c)
+			sys.envShake.freq = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180)
 		}
 		return true
 	})
@@ -5557,9 +5557,9 @@ func (sc angleDraw) Run(c *Char, _ []int32) bool {
 		case angleDraw_value:
 			crun.angleSet(exp[0].evalF(c))
 		case angleDraw_scale:
-			crun.angleScalse[0] *= exp[0].evalF(c)
+			crun.angleScale[0] *= exp[0].evalF(c)
 			if len(exp) > 1 {
-				crun.angleScalse[1] *= exp[1].evalF(c)
+				crun.angleScale[1] *= exp[1].evalF(c)
 			}
 		case angleDraw_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
