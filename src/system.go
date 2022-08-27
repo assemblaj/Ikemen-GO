@@ -2010,9 +2010,9 @@ func (s *System) fight() (reload bool) {
 		}
 
 		if s.saveStateFlag {
-
+			s.gameState.SaveState()
 		} else if s.loadStateFlag {
-
+			s.gameState.LoadState()
 		}
 		s.saveStateFlag = false
 		s.loadStateFlag = false

@@ -66,6 +66,7 @@ func (gs *GameState) savePalFX() {
 
 func (gs *GameState) saveCharData() {
 	for i := range sys.chars {
+		gs.chars[i] = make([]*Char, len(sys.chars[i]))
 		for j, c := range sys.chars[i] {
 			gs.chars[i][j] = c.clone()
 		}
@@ -166,10 +167,12 @@ func (gs *GameState) loadPalFX() {
 
 func (gs *GameState) loadCharData() {
 	for i := range gs.chars {
-		for j, c := range sys.chars[i] {
+		sys.chars[i] = make([]*Char, len(gs.chars[i]))
+		for j, c := range gs.chars[i] {
 			sys.chars[i][j] = c.clone()
 		}
 	}
+	sys.chars = gs.chars
 	sys.charList = *gs.charList.clone()
 }
 

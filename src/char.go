@@ -1736,7 +1736,9 @@ func (c *Char) clone() (result *Char) {
 	result.ghv = *c.ghv.clone()
 
 	result.children = make([]*Char, len(c.children))
-	copy(result.children, c.children)
+	for i := 0; i < len(c.children); i++ {
+		result.children[i] = c.children[i].clone()
+	}
 
 	result.targets = make([]int32, len(c.targets))
 	copy(result.targets, c.targets)
@@ -1746,7 +1748,9 @@ func (c *Char) clone() (result *Char) {
 
 	for i := range c.enemynear {
 		result.enemynear[i] = make([]*Char, len(c.enemynear[i]))
-		copy(result.enemynear[i], c.enemynear[i])
+		for j := 0; j < len(c.enemynear[i]); j++ {
+			result.enemynear[i][j] = c.enemynear[i][j].clone()
+		}
 	}
 
 	result.clipboardText = make([]string, len(c.clipboardText))
@@ -5975,11 +5979,15 @@ func (cl *CharList) clone() (result *CharList) {
 
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc
-	result.runOrder = make([]*Char, len(result.runOrder))
-	copy(result.runOrder, cl.runOrder)
+	result.runOrder = make([]*Char, len(cl.runOrder))
+	for i := 0; i < len(cl.runOrder); i++ {
+		result.runOrder[i] = cl.runOrder[i].clone()
+	}
 
-	result.drawOrder = make([]*Char, len(result.drawOrder))
-	copy(result.drawOrder, cl.drawOrder)
+	result.drawOrder = make([]*Char, len(cl.drawOrder))
+	for i := 0; i < len(cl.drawOrder); i++ {
+		result.drawOrder[i] = cl.drawOrder[i].clone()
+	}
 
 	result.idMap = make(map[int32]*Char)
 	for k, v := range cl.idMap {
