@@ -694,6 +694,18 @@ type GetHitVar struct {
 	fatal          bool
 }
 
+func (ghv *GetHitVar) clone() (result *GetHitVar) {
+	result = &GetHitVar{}
+	*result = *ghv
+
+	// Manually copy references that shallow copy poorly, as needed
+	// Pointers, slices, maps, functions, channels etc
+	result.hitBy = make([][2]int32, len(ghv.hitBy))
+	copy(result.hitBy, ghv.hitBy)
+
+	return
+}
+
 func (ghv *GetHitVar) clear() {
 	*ghv = GetHitVar{_type: -1, hittime: -1, yaccel: float32(math.NaN()),
 		xoff: ghv.xoff, yoff: ghv.yoff, hitid: -1, playerNo: -1}
@@ -1715,6 +1727,34 @@ type Char struct {
 	pauseBool             bool
 }
 
+func (c *Char) clone() (result *Char) {
+	result = &Char{}
+	*result = *c
+
+	// Manually copy references that shallow copy poorly, as needed
+	// Pointers, slices, maps, functions, channels etc
+	result.ghv = *c.ghv.clone()
+
+	result.children = make([]*Char, len(c.children))
+	copy(result.children, c.children)
+
+	result.targets = make([]int32, len(c.targets))
+	copy(result.targets, c.targets)
+
+	result.targetsOfHitdef = make([]int32, len(c.targetsOfHitdef))
+	copy(result.targetsOfHitdef, c.targetsOfHitdef)
+
+	for i := range c.enemynear {
+		result.enemynear[i] = make([]*Char, len(c.enemynear[i]))
+		copy(result.enemynear[i], c.enemynear[i])
+	}
+
+	result.clipboardText = make([]string, len(c.clipboardText))
+	copy(result.clipboardText, c.clipboardText)
+
+	return
+}
+
 func newChar(n int, idx int32) (c *Char) {
 	c = &Char{aimg: *newAfterImage()}
 	c.init(n, idx)
@@ -2058,7 +2098,7 @@ func (c *Char) load(def string) error {
 	gi.remapPreset = make(map[string]RemapPreset)
 
 	data, size, velocity, movement, quotes, constants := true, true, true, true, true, true
-	
+
 	if len(cns) > 0 {
 		if err := LoadFile(&cns, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
 			str, err := LoadText(filename)
@@ -2067,8 +2107,8 @@ func (c *Char) load(def string) error {
 			}
 			lines, i = SplitAndTrim(str, "\n"), 0
 			for i < len(lines) {
-			is, name, subname := ReadIniSection(lines, &i)
-			switch name {
+				is, name, subname := ReadIniSection(lines, &i)
+				switch name {
 				case "data":
 					if data {
 						data = false
@@ -5927,6 +5967,25 @@ func (c *Char) cueDraw() {
 type CharList struct {
 	runOrder, drawOrder []*Char
 	idMap               map[int32]*Char
+}
+
+func (cl *CharList) clone() (result *CharList) {
+	result = &CharList{}
+	*result = *cl
+
+	// Manually copy references that shallow copy poorly, as needed
+	// Pointers, slices, maps, functions, channels etc
+	result.runOrder = make([]*Char, len(result.runOrder))
+	copy(result.runOrder, cl.runOrder)
+
+	result.drawOrder = make([]*Char, len(result.drawOrder))
+	copy(result.drawOrder, cl.drawOrder)
+
+	result.idMap = make(map[int32]*Char)
+	for k, v := range cl.idMap {
+		result.idMap[k] = v
+	}
+	return
 }
 
 func (cl *CharList) clear() {
