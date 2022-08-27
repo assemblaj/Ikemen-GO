@@ -84,6 +84,7 @@ func newCompiler() *Compiler {
 		"targetdrop":           c.targetDrop,
 		"lifeadd":              c.lifeAdd,
 		"lifeset":              c.lifeSet,
+		"loadstate":            c.loadState,
 		"poweradd":             c.powerAdd,
 		"powerset":             c.powerSet,
 		"hitvelset":            c.hitVelSet,
@@ -158,6 +159,7 @@ func newCompiler() *Compiler {
 		"roundtimeadd":         c.roundTimeAdd,
 		"roundtimeset":         c.roundTimeSet,
 		"savefile":             c.saveFile,
+		"savestate":            c.saveState,
 		"scoreadd":             c.scoreAdd,
 		"targetdizzypointsadd": c.targetDizzyPointsAdd,
 		"targetguardpointsadd": c.targetGuardPointsAdd,
@@ -2125,7 +2127,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_const_stagevar_shadow_fade_range_begin
 		case "shadow.fade.range.end":
 			opc = OC_const_stagevar_shadow_fade_range_end
-		case "shadow.xshear":	
+		case "shadow.xshear":
 			opc = OC_const_stagevar_shadow_xshear
 		case "reflection.intensity":
 			opc = OC_const_stagevar_reflection_intensity

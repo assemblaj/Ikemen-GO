@@ -1300,7 +1300,7 @@ func systemScriptInit(l *lua.LState) {
 		var s string
 		var joy, min, max int = 0, 0, len(joystick)
 		if l.GetTop() >= 1 {
-			min = int(Clamp(int32(numArg(l, 1)), 0, int32(len(joystick) - 1)))
+			min = int(Clamp(int32(numArg(l, 1)), 0, int32(len(joystick)-1)))
 			max = min + 1
 		}
 		for joy = min; joy < max; joy++ {
@@ -1434,6 +1434,10 @@ func systemScriptInit(l *lua.LState) {
 		}
 		l.Push(newUserData(l, w))
 		return 1
+	})
+	luaRegister(l, "loadState", func(*lua.LState) int {
+		sys.saveStateFlag = true
+		return 0
 	})
 	luaRegister(l, "loadDebugFont", func(l *lua.LState) int {
 		ts := NewTextSprite()
@@ -1679,6 +1683,10 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "roundReset", func(*lua.LState) int {
 		sys.roundResetFlg = true
+		return 0
+	})
+	luaRegister(l, "saveState", func(*lua.LState) int {
+		sys.saveStateFlag = true
 		return 0
 	})
 	luaRegister(l, "screenshot", func(*lua.LState) int {

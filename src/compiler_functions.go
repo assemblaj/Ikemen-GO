@@ -4668,3 +4668,27 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 func (c *Compiler) null(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	return nullStateController, nil
 }
+
+func (c *Compiler) saveState(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*saveState)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			saveState_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		sc.add(saveState_, nil)
+		return nil
+	})
+	return *ret, err
+}
+
+func (c *Compiler) loadState(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*loadState)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			loadState_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		sc.add(loadState_, nil)
+		return nil
+	})
+	return *ret, err
+}
