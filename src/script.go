@@ -1436,7 +1436,7 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "loadState", func(*lua.LState) int {
-		sys.saveStateFlag = true
+		sys.loadStateFlag = true
 		return 0
 	})
 	luaRegister(l, "loadDebugFont", func(l *lua.LState) int {

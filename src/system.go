@@ -864,6 +864,8 @@ func (s *System) playerClear(pn int, destroy bool) {
 func (s *System) nextRound() {
 	s.resetGblEffect()
 	s.lifebar.reset()
+	s.saveStateFlag = false
+	s.loadStateFlag = false
 	s.finish = FT_NotYet
 	s.winTeam = -1
 	s.winType = [...]WinType{WT_N, WT_N}
@@ -2006,6 +2008,14 @@ func (s *System) fight() (reload bool) {
 				}
 			}
 		}
+
+		if s.saveStateFlag {
+
+		} else if s.loadStateFlag {
+
+		}
+		s.saveStateFlag = false
+		s.loadStateFlag = false
 
 		// If next round
 		if s.roundOver() && !fin {
