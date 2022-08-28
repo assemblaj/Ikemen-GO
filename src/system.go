@@ -90,6 +90,7 @@ var sys = System{
 	stereoEffects:        true,
 	panningRange:         30,
 	windowCentered:       true,
+	gameState:            NewGameState(),
 }
 
 type TeamMode int32
@@ -365,10 +366,6 @@ type Window struct {
 	title      string
 	fullscreen bool
 	x, y, w, h int
-}
-
-func (s *System) loadGameState() {
-	s.gameState.LoadState()
 }
 
 func (s *System) newWindow(w, h int) (*Window, error) {
@@ -2185,6 +2182,7 @@ func (s *System) fight() (reload bool) {
 		} else if s.esc {
 			s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
 		}
+
 	}
 
 	return false

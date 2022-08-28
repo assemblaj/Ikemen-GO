@@ -167,6 +167,70 @@ type Animation struct {
 	start_scale                [2]float32
 }
 
+func (a *Animation) getAnimationState() AnimationState {
+	return AnimationState{
+		frames:                     a.frames,
+		tile:                       a.tile,
+		loopstart:                  a.loopstart,
+		interpolate_offset:         a.interpolate_offset,
+		interpolate_scale:          a.interpolate_scale,
+		interpolate_angle:          a.interpolate_angle,
+		interpolate_blend:          a.interpolate_blend,
+		current:                    a.current,
+		drawidx:                    a.drawidx,
+		time:                       a.time,
+		sumtime:                    a.sumtime,
+		totaltime:                  a.totaltime,
+		looptime:                   a.looptime,
+		nazotime:                   a.nazotime,
+		mask:                       a.mask,
+		srcAlpha:                   a.srcAlpha,
+		dstAlpha:                   a.dstAlpha,
+		newframe:                   a.newframe,
+		loopend:                    a.loopend,
+		interpolate_offset_x:       a.interpolate_offset_x,
+		interpolate_offset_y:       a.interpolate_offset_y,
+		scale_x:                    a.scale_x,
+		scale_y:                    a.scale_y,
+		angle:                      a.angle,
+		interpolate_blend_srcalpha: a.interpolate_blend_srcalpha,
+		interpolate_blend_dstalpha: a.interpolate_blend_dstalpha,
+		remap:                      a.remap,
+		start_scale:                a.start_scale,
+	}
+}
+
+func (a *Animation) loadAnimationState(as AnimationState) {
+	a.frames = as.frames
+	a.tile = as.tile
+	a.loopstart = as.loopstart
+	a.interpolate_offset = as.interpolate_offset
+	a.interpolate_scale = as.interpolate_scale
+	a.interpolate_angle = as.interpolate_angle
+	a.interpolate_blend = as.interpolate_blend
+	a.current = as.current
+	a.drawidx = as.drawidx
+	a.time = as.time
+	a.sumtime = as.sumtime
+	a.totaltime = as.totaltime
+	a.looptime = as.looptime
+	a.nazotime = as.nazotime
+	a.mask = as.mask
+	a.srcAlpha = as.srcAlpha
+	a.dstAlpha = as.dstAlpha
+	a.newframe = as.newframe
+	a.loopend = as.loopend
+	a.interpolate_offset_x = as.interpolate_offset_x
+	a.interpolate_offset_y = as.interpolate_offset_y
+	a.scale_x = as.scale_x
+	a.scale_y = as.scale_y
+	a.angle = as.angle
+	a.interpolate_blend_srcalpha = as.interpolate_blend_srcalpha
+	a.interpolate_blend_dstalpha = as.interpolate_blend_dstalpha
+	a.remap = as.remap
+	a.start_scale = as.start_scale
+}
+
 func newAnimation(sff *Sff) *Animation {
 	return &Animation{sff: sff, mask: -1, srcAlpha: -1, newframe: true,
 		remap: make(RemapPreset), start_scale: [...]float32{1, 1}}
@@ -975,7 +1039,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		if sys.stage.sdw.yscale > 0 {
 			xshear = -xshear
 		}
-		xshearoff := -sys.stage.sdw.xshear*(float32(s.anim.spr.Size[1])*sys.stage.localscl-s.pos[1])
+		xshearoff := -sys.stage.sdw.xshear * (float32(s.anim.spr.Size[1])*sys.stage.localscl - s.pos[1])
 		if s.window[0] != 0 || s.window[1] != 0 || s.window[2] != 0 || s.window[3] != 0 {
 			w := s.window
 			w[1], w[3] = -w[1], -w[3]

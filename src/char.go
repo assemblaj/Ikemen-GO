@@ -971,6 +971,82 @@ type Explod struct {
 	localscl       float32
 }
 
+func (e *Explod) getExplodState() ExplodState {
+	return ExplodState{
+		id:             e.id,
+		bindtime:       e.bindtime,
+		scale:          e.scale,
+		time:           e.time,
+		removeongethit: e.removeongethit,
+		removetime:     e.removetime,
+		velocity:       e.velocity,
+		accel:          e.accel,
+		sprpriority:    e.sprpriority,
+		postype:        e.postype,
+		space:          e.space,
+		offset:         e.offset,
+		relativef:      e.relativef,
+		pos:            e.pos,
+		facing:         e.facing,
+		vfacing:        e.vfacing,
+		shadow:         e.shadow,
+		supermovetime:  e.supermovetime,
+		pausemovetime:  e.pausemovetime,
+		ontop:          e.ontop,
+		under:          e.under,
+		alpha:          e.alpha,
+		ownpal:         e.ownpal,
+		playerId:       e.playerId,
+		bindId:         e.bindId,
+		ignorehitpause: e.ignorehitpause,
+		rot:            e.rot,
+		projection:     e.projection,
+		fLength:        e.fLength,
+		oldPos:         e.oldPos,
+		newPos:         e.newPos,
+		palfxdef:       e.palfxdef,
+		window:         e.window,
+		localscl:       e.localscl,
+	}
+}
+
+func (e *Explod) loadExplodState(es ExplodState) {
+	e.id = es.id
+	e.bindtime = es.bindtime
+	e.scale = es.scale
+	e.time = es.time
+	e.removeongethit = es.removeongethit
+	e.removetime = es.removetime
+	e.velocity = es.velocity
+	e.accel = es.accel
+	e.sprpriority = es.sprpriority
+	e.postype = es.postype
+	e.space = es.space
+	e.offset = es.offset
+	e.relativef = es.relativef
+	e.pos = es.pos
+	e.facing = es.facing
+	e.vfacing = es.vfacing
+	e.shadow = es.shadow
+	e.supermovetime = es.supermovetime
+	e.pausemovetime = es.pausemovetime
+	e.ontop = es.ontop
+	e.under = es.under
+	e.alpha = es.alpha
+	e.ownpal = es.ownpal
+	e.playerId = es.playerId
+	e.bindId = es.bindId
+	e.ignorehitpause = es.ignorehitpause
+	e.rot = es.rot
+	e.projection = es.projection
+	e.fLength = es.fLength
+	e.oldPos = es.oldPos
+	e.newPos = es.newPos
+	e.palfxdef = es.palfxdef
+	e.window = es.window
+	e.localscl = es.localscl
+}
+
 func (e *Explod) clear() {
 	*e = Explod{id: IErr, scale: [...]float32{1, 1}, removetime: -2,
 		postype: PT_P1, relativef: 1, facing: 1, vfacing: 1, localscl: 1, space: Space_none,
@@ -1277,6 +1353,102 @@ type Projectile struct {
 	platformFence   bool
 }
 
+func (p *Projectile) loadProjectileState(ps ProjectileState) {
+	p.hitdef = ps.hitdef
+	p.id = ps.id
+	p.anim = ps.anim
+	p.anim_fflg = ps.anim_fflg
+	p.hitanim = ps.hitanim
+	p.hitanim_fflg = ps.hitanim_fflg
+	p.remanim = ps.remanim
+	p.remanim_fflg = ps.remanim_fflg
+	p.cancelanim = ps.cancelanim
+	p.cancelanim_fflg = ps.cancelanim_fflg
+	p.scale = ps.scale
+	p.angle = ps.angle
+	p.clsnScale = ps.clsnScale
+	p.remove = ps.remove
+	p.removetime = ps.removetime
+	p.velocity = ps.velocity
+	p.remvelocity = ps.remvelocity
+	p.accel = ps.accel
+	p.velmul = ps.velmul
+	p.hits = ps.hits
+	p.misstime = ps.misstime
+	p.priority = ps.priority
+	p.priorityPoints = ps.priorityPoints
+	p.sprpriority = ps.sprpriority
+	p.edgebound = ps.edgebound
+	p.stagebound = ps.stagebound
+	p.heightbound = ps.heightbound
+	p.pos = ps.pos
+	p.facing = ps.facing
+	p.removefacing = ps.removefacing
+	p.shadow = ps.shadow
+	p.supermovetime = ps.supermovetime
+	p.pausemovetime = ps.pausemovetime
+	p.timemiss = ps.timemiss
+	p.hitpause = ps.hitpause
+	p.oldPos = ps.oldPos
+	p.newPos = ps.newPos
+	p.localscl = ps.localscl
+	p.parentAttackmul = ps.parentAttackmul
+	p.platform = ps.platform
+	p.platformWidth = ps.platformWidth
+	p.platformHeight = ps.platformHeight
+	p.platformAngle = ps.platformAngle
+	p.platformFence = ps.platformFence
+
+}
+
+func (p *Projectile) getProjectileState() ProjectileState {
+	return ProjectileState{
+		hitdef:          p.hitdef,
+		id:              p.id,
+		anim:            p.anim,
+		anim_fflg:       p.anim_fflg,
+		hitanim:         p.hitanim,
+		hitanim_fflg:    p.hitanim_fflg,
+		remanim:         p.remanim,
+		remanim_fflg:    p.remanim_fflg,
+		cancelanim:      p.cancelanim,
+		cancelanim_fflg: p.cancelanim_fflg,
+		scale:           p.scale,
+		angle:           p.angle,
+		clsnScale:       p.clsnScale,
+		remove:          p.remove,
+		removetime:      p.removetime,
+		velocity:        p.velocity,
+		remvelocity:     p.remvelocity,
+		accel:           p.accel,
+		velmul:          p.velmul,
+		hits:            p.hits,
+		misstime:        p.misstime,
+		priority:        p.priority,
+		priorityPoints:  p.priorityPoints,
+		sprpriority:     p.sprpriority,
+		edgebound:       p.edgebound,
+		stagebound:      p.stagebound,
+		heightbound:     p.heightbound,
+		pos:             p.pos,
+		facing:          p.facing,
+		removefacing:    p.removefacing,
+		shadow:          p.shadow,
+		supermovetime:   p.supermovetime,
+		pausemovetime:   p.pausemovetime,
+		timemiss:        p.timemiss,
+		hitpause:        p.hitpause,
+		oldPos:          p.oldPos,
+		newPos:          p.newPos,
+		localscl:        p.localscl,
+		parentAttackmul: p.parentAttackmul,
+		platform:        p.platform,
+		platformWidth:   p.platformWidth,
+		platformHeight:  p.platformHeight,
+		platformAngle:   p.platformAngle,
+		platformFence:   p.platformFence,
+	}
+}
 func newProjectile() *Projectile {
 	p := &Projectile{}
 	p.clear()
@@ -1725,6 +1897,241 @@ type Char struct {
 	activeHitScale        map[int32][3]*HitScale
 	inputFlag             InputBits
 	pauseBool             bool
+}
+
+func (c *Char) getCharState() CharState {
+	return CharState{
+		cmd:                   c.cmd,
+		ss:                    c.ss,
+		hitdef:                c.hitdef,
+		redLife:               c.redLife,
+		juggle:                c.juggle,
+		life:                  c.life,
+		name:                  c.name,
+		key:                   c.key,
+		id:                    c.id,
+		helperId:              c.helperId,
+		helperIndex:           c.helperIndex,
+		parentIndex:           c.parentIndex,
+		playerNo:              c.playerNo,
+		teamside:              c.teamside,
+		player:                c.player,
+		animPN:                c.animPN,
+		animNo:                c.animNo,
+		lifeMax:               c.lifeMax,
+		powerMax:              c.powerMax,
+		dizzyPoints:           c.dizzyPoints,
+		dizzyPointsMax:        c.dizzyPointsMax,
+		guardPoints:           c.guardPoints,
+		guardPointsMax:        c.guardPointsMax,
+		fallTime:              c.fallTime,
+		localcoord:            c.localcoord,
+		localscl:              c.localscl,
+		clsnScale:             c.clsnScale,
+		hoIdx:                 c.hoIdx,
+		mctime:                c.mctime,
+		targets:               c.targets,
+		targetsOfHitdef:       c.targetsOfHitdef,
+		pos:                   c.pos,
+		drawPos:               c.drawPos,
+		oldPos:                c.oldPos,
+		vel:                   c.vel,
+		facing:                c.facing,
+		p1facing:              c.p1facing,
+		cpucmd:                c.cpucmd,
+		attackDist:            c.attackDist,
+		stchtmp:               c.stchtmp,
+		inguarddist:           c.inguarddist,
+		pushed:                c.pushed,
+		hitdefContact:         c.hitdefContact,
+		atktmp:                c.atktmp,
+		hittmp:                c.hittmp,
+		acttmp:                c.acttmp,
+		minus:                 c.minus,
+		platformPosY:          c.platformPosY,
+		groundAngle:           c.groundAngle,
+		ownpal:                c.ownpal,
+		winquote:              c.winquote,
+		memberNo:              c.memberNo,
+		selectNo:              c.selectNo,
+		comboExtraFrameWindow: c.comboExtraFrameWindow,
+		inheritJuggle:         c.inheritJuggle,
+		immortal:              c.immortal,
+		kovelocity:            c.kovelocity,
+		preserve:              c.preserve,
+		inputFlag:             c.inputFlag,
+		pauseBool:             c.pauseBool,
+		keyctrl:               c.keyctrl,
+		power:                 c.power,
+		size:                  c.size,
+		ghv:                   c.ghv,
+		hitby:                 c.hitby,
+		ho:                    c.ho,
+		mctype:                c.mctype,
+		ivar:                  c.ivar,
+		fvar:                  c.fvar,
+		offset:                c.offset,
+		mapArray:              c.mapArray,
+		mapDefault:            c.mapDefault,
+		remapSpr:              c.remapSpr,
+		clipboardText:         c.clipboardText,
+		dialogue:              c.dialogue,
+		defaultHitScale:       c.defaultHitScale,
+		nextHitScale:          c.nextHitScale,
+		activeHitScale:        c.activeHitScale,
+
+		CharSystemVar: CharSystemVar{
+			airJumpCount:     c.airJumpCount,
+			hitCount:         c.hitCount,
+			uniqHitCount:     c.uniqHitCount,
+			pauseMovetime:    c.pauseMovetime,
+			superMovetime:    c.superMovetime,
+			bindTime:         c.bindTime,
+			bindToId:         c.bindToId,
+			bindPos:          c.bindPos,
+			bindFacing:       c.bindFacing,
+			hitPauseTime:     c.hitPauseTime,
+			angle:            c.angle,
+			angleScale:       c.angleScale,
+			alpha:            c.alpha,
+			recoverTime:      c.recoverTime,
+			systemFlag:       c.systemFlag,
+			specialFlag:      c.specialFlag,
+			sprPriority:      c.sprPriority,
+			receivedHits:     c.receivedHits,
+			fakeReceivedHits: c.fakeReceivedHits,
+			velOff:           c.velOff,
+			width:            c.width,
+			edge:             c.edge,
+			attackMul:        c.attackMul,
+			superDefenseMul:  c.superDefenseMul,
+			fallDefenseMul:   c.fallDefenseMul,
+			customDefense:    c.customDefense,
+			finalDefense:     c.finalDefense,
+			defenseMulDelay:  c.defenseMulDelay,
+
+			counterHit:   c.counterHit,
+			firstAttack:  c.firstAttack,
+			comboDmg:     c.comboDmg,
+			fakeComboDmg: c.fakeComboDmg,
+
+			fakeCombo: c.fakeCombo,
+		},
+	}
+}
+func (c *Char) loadCharState(cs CharState) {
+	c.ss = cs.ss
+	c.cmd = cs.cmd
+	c.hitdef = cs.hitdef
+	c.redLife = cs.redLife
+	c.juggle = cs.juggle
+	c.life = cs.life
+	c.name = cs.name
+	c.key = cs.key
+	c.id = cs.id
+	c.helperId = cs.helperId
+	c.helperIndex = cs.helperIndex
+	c.parentIndex = cs.parentIndex
+	c.playerNo = cs.playerNo
+	c.teamside = cs.teamside
+	c.player = cs.player
+	c.animPN = cs.animPN
+	c.animNo = cs.animNo
+	c.lifeMax = cs.lifeMax
+	c.powerMax = cs.powerMax
+	c.dizzyPoints = cs.dizzyPoints
+	c.dizzyPointsMax = cs.dizzyPointsMax
+	c.guardPoints = cs.guardPoints
+	c.guardPointsMax = cs.guardPointsMax
+	c.fallTime = cs.fallTime
+	c.localcoord = cs.localcoord
+	c.localscl = cs.localscl
+	c.clsnScale = cs.clsnScale
+	c.hoIdx = cs.hoIdx
+	c.mctime = cs.mctime
+	c.targets = cs.targets
+	c.targetsOfHitdef = cs.targetsOfHitdef
+	c.pos = cs.pos
+	c.drawPos = cs.drawPos
+	c.oldPos = cs.oldPos
+	c.vel = cs.vel
+	c.facing = cs.facing
+	c.p1facing = cs.p1facing
+	c.cpucmd = cs.cpucmd
+	c.attackDist = cs.attackDist
+	c.stchtmp = cs.stchtmp
+	c.inguarddist = cs.inguarddist
+	c.pushed = cs.pushed
+	c.hitdefContact = cs.hitdefContact
+	c.atktmp = cs.atktmp
+	c.hittmp = cs.hittmp
+	c.acttmp = cs.acttmp
+	c.minus = cs.minus
+	c.platformPosY = cs.platformPosY
+	c.groundAngle = cs.groundAngle
+	c.ownpal = cs.ownpal
+	c.winquote = cs.winquote
+	c.memberNo = cs.memberNo
+	c.selectNo = cs.selectNo
+	c.comboExtraFrameWindow = cs.comboExtraFrameWindow
+	c.inheritJuggle = cs.inheritJuggle
+	c.immortal = cs.immortal
+	c.kovelocity = cs.kovelocity
+	c.preserve = cs.preserve
+	c.inputFlag = cs.inputFlag
+	c.pauseBool = cs.pauseBool
+	c.airJumpCount = cs.airJumpCount
+	c.hitCount = cs.hitCount
+	c.uniqHitCount = cs.uniqHitCount
+	c.pauseMovetime = cs.pauseMovetime
+	c.superMovetime = cs.superMovetime
+	c.bindTime = cs.bindTime
+	c.bindToId = cs.bindToId
+	c.bindPos = cs.bindPos
+	c.bindFacing = cs.bindFacing
+	c.hitPauseTime = cs.hitPauseTime
+	c.angle = cs.angle
+	c.angleScale = cs.angleScale
+	c.alpha = cs.alpha
+	c.recoverTime = cs.recoverTime
+	c.systemFlag = cs.systemFlag
+	c.specialFlag = cs.specialFlag
+	c.sprPriority = cs.sprPriority
+	c.receivedHits = cs.receivedHits
+	c.fakeReceivedHits = cs.fakeReceivedHits
+	c.velOff = cs.velOff
+	c.width = cs.width
+	c.edge = cs.edge
+	c.attackMul = cs.attackMul
+	c.superDefenseMul = cs.superDefenseMul
+	c.fallDefenseMul = cs.fallDefenseMul
+	c.customDefense = cs.customDefense
+	c.finalDefense = cs.finalDefense
+	c.defenseMulDelay = cs.defenseMulDelay
+	c.counterHit = cs.counterHit
+	c.firstAttack = cs.firstAttack
+	c.comboDmg = cs.comboDmg
+	c.fakeComboDmg = cs.fakeComboDmg
+	c.fakeCombo = cs.fakeCombo
+
+	c.keyctrl = cs.keyctrl
+	c.power = cs.power
+	c.size = cs.size
+	c.ghv = cs.ghv
+	c.hitby = cs.hitby
+	c.ho = cs.ho
+	c.mctype = cs.mctype
+	c.ivar = cs.ivar
+	c.fvar = cs.fvar
+	c.offset = cs.offset
+	c.mapArray = cs.mapArray
+	c.mapDefault = cs.mapDefault
+	c.remapSpr = cs.remapSpr
+	c.clipboardText = cs.clipboardText
+	c.dialogue = cs.dialogue
+	c.defaultHitScale = cs.defaultHitScale
+	c.nextHitScale = cs.nextHitScale
+	c.activeHitScale = cs.activeHitScale
 }
 
 func (c *Char) clone() (result *Char) {
@@ -5991,7 +6398,7 @@ func (cl *CharList) clone() (result *CharList) {
 
 	result.idMap = make(map[int32]*Char)
 	for k, v := range cl.idMap {
-		result.idMap[k] = v
+		result.idMap[k] = v.clone()
 	}
 	return
 }
