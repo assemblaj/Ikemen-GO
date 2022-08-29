@@ -1963,8 +1963,8 @@ func (cl *CommandList) Input(i int, facing int32, aiLevel float32, ib InputBits)
 		return false
 	}
 	step := cl.Buffer.Bb != 0
-	if i < 0 && ^i < len(sys.aiInput) {
-		sys.aiInput[^i].Update(aiLevel) // 乱数を使うので同期がずれないようここで / Here we use random numbers so we can not get out of sync
+	if i < 0 && ^i < len(sys.gs.aiInput) {
+		sys.gs.aiInput[^i].Update(aiLevel) // 乱数を使うので同期がずれないようここで / Here we use random numbers so we can not get out of sync
 	}
 	_else := i < 0
 	if _else {
@@ -1979,21 +1979,21 @@ func (cl *CommandList) Input(i int, facing int32, aiLevel float32, ib InputBits)
 		var L, R, U, D, a, b, c, x, y, z, s, d, w, m bool
 		if i < 0 {
 			i = ^i
-			if i < len(sys.aiInput) {
-				L = sys.aiInput[i].L() || ib&IB_PL != 0
-				R = sys.aiInput[i].R() || ib&IB_PR != 0
-				U = sys.aiInput[i].U() || ib&IB_PU != 0
-				D = sys.aiInput[i].D() || ib&IB_PD != 0
-				a = sys.aiInput[i].a() || ib&IB_A != 0
-				b = sys.aiInput[i].b() || ib&IB_B != 0
-				c = sys.aiInput[i].c() || ib&IB_C != 0
-				x = sys.aiInput[i].x() || ib&IB_X != 0
-				y = sys.aiInput[i].y() || ib&IB_Y != 0
-				z = sys.aiInput[i].z() || ib&IB_Z != 0
-				s = sys.aiInput[i].s() || ib&IB_S != 0
-				d = sys.aiInput[i].d() || ib&IB_D != 0
-				w = sys.aiInput[i].w() || ib&IB_W != 0
-				m = sys.aiInput[i].m() || ib&IB_M != 0
+			if i < len(sys.gs.aiInput) {
+				L = sys.gs.aiInput[i].L() || ib&IB_PL != 0
+				R = sys.gs.aiInput[i].R() || ib&IB_PR != 0
+				U = sys.gs.aiInput[i].U() || ib&IB_PU != 0
+				D = sys.gs.aiInput[i].D() || ib&IB_PD != 0
+				a = sys.gs.aiInput[i].a() || ib&IB_A != 0
+				b = sys.gs.aiInput[i].b() || ib&IB_B != 0
+				c = sys.gs.aiInput[i].c() || ib&IB_C != 0
+				x = sys.gs.aiInput[i].x() || ib&IB_X != 0
+				y = sys.gs.aiInput[i].y() || ib&IB_Y != 0
+				z = sys.gs.aiInput[i].z() || ib&IB_Z != 0
+				s = sys.gs.aiInput[i].s() || ib&IB_S != 0
+				d = sys.gs.aiInput[i].d() || ib&IB_D != 0
+				w = sys.gs.aiInput[i].w() || ib&IB_W != 0
+				m = sys.gs.aiInput[i].m() || ib&IB_M != 0
 			}
 		} else if i < len(sys.inputRemap) {
 			in := sys.inputRemap[i]

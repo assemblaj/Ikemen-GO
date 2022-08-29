@@ -112,6 +112,7 @@ type GameState struct {
 	explDrawlist      [MaxSimul*2 + MaxAttachedChar][]int
 	topexplDrawlist   [MaxSimul*2 + MaxAttachedChar][]int
 	underexplDrawlist [MaxSimul*2 + MaxAttachedChar][]int
+	aiInput           [MaxSimul*2 + MaxAttachedChar]AiInput
 	cam               Camera
 	ac                activeCamera
 }
@@ -260,7 +261,6 @@ type System struct {
 	keyState                map[glfw.Key]bool
 	netInput                *NetInput
 	fileInput               *FileInput
-	aiInput                 [MaxSimul*2 + MaxAttachedChar]AiInput
 	keyConfig               []KeyConfig
 	joystickConfig          []KeyConfig
 	com                     [MaxSimul*2 + MaxAttachedChar]float32
@@ -1870,7 +1870,7 @@ func (s *System) drawDebug() {
 func (s *System) fight() (reload bool) {
 	// Reset variables
 	s.gs.gameTime, s.paused, s.accel = 0, false, 1
-	s.aiInput = [len(s.aiInput)]AiInput{}
+	s.gs.aiInput = [len(s.gs.aiInput)]AiInput{}
 	// Defer resetting variables on return
 	defer func() {
 		s.oldNextAddTime = 1
