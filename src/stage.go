@@ -632,6 +632,34 @@ type Stage struct {
 	stageprops      StageProps
 }
 
+func (s *Stage) getStageState() StageState {
+	return StageState{
+		p:           s.p,
+		stageCamera: s.stageCamera,
+		leftbound:   s.leftbound,
+		rightbound:  s.rightbound,
+		screenleft:  s.screenleft,
+		screenright: s.screenright,
+		zoffsetlink: s.zoffsetlink,
+		scale:       s.scale,
+		sdw:         s.sdw,
+		reflection:  s.reflection,
+	}
+}
+func (s *Stage) loadStageState(ss StageState) {
+	s.p = ss.p
+	s.stageCamera = ss.stageCamera
+	s.leftbound = ss.leftbound
+	s.rightbound = ss.rightbound
+	s.screenleft = ss.screenleft
+	s.screenright = ss.screenright
+	s.zoffsetlink = ss.zoffsetlink
+	s.scale = ss.scale
+	s.sdw = ss.sdw
+	s.reflection = ss.reflection
+
+}
+
 func newStage(def string) *Stage {
 	s := &Stage{def: def, leftbound: -1000,
 		rightbound: 1000, screenleft: 15, screenright: 15,

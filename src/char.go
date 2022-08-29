@@ -972,7 +972,13 @@ type Explod struct {
 }
 
 func (e *Explod) getExplodState() ExplodState {
+	var animState AnimationState
+	if e.anim != nil {
+		animState = e.anim.getAnimationState()
+	}
+
 	return ExplodState{
+		animState:      animState,
 		id:             e.id,
 		bindtime:       e.bindtime,
 		scale:          e.scale,
@@ -1011,6 +1017,9 @@ func (e *Explod) getExplodState() ExplodState {
 }
 
 func (e *Explod) loadExplodState(es ExplodState) {
+	if e.anim != nil {
+		e.anim.loadAnimationState(es.animState)
+	}
 	e.id = es.id
 	e.bindtime = es.bindtime
 	e.scale = es.scale
@@ -1899,9 +1908,72 @@ type Char struct {
 	pauseBool             bool
 }
 
+func (c *Char) getChildrenState() (childrenState []CharState) {
+	childrenState = make([]CharState, len(c.children))
+	for i, ch := range c.children {
+		if ch != nil {
+			childrenState[i] = ch.getCharState()
+		}
+	}
+	return
+}
+
+func (c *Char) getEnemyNearState() (enemynearState [2][]CharState) {
+	for i := 0; i < len(c.enemynear); i++ {
+		enemynearState[i] = make([]CharState, len(c.enemynear[i]))
+		for j := 0; j < len(c.enemynear[i]); j++ {
+			enemynearState[i][j] = c.enemynear[i][j].getCharState()
+		}
+	}
+	return
+}
+
 func (c *Char) getCharState() CharState {
+	targets := make([]int32, len(c.targets))
+	copy(targets, c.targets)
+
+	targetsOfHitdef := make([]int32, len(c.targetsOfHitdef))
+	copy(targetsOfHitdef, c.targetsOfHitdef)
+
+	commandList := make([]CommandList, len(c.cmd))
+	for i, c := range c.cmd {
+		commandList[i] = c.clone()
+	}
+
+	defaultHitScale := [3]*HitScale{}
+	for i := 0; i < len(defaultHitScale); i++ {
+		if defaultHitScale[i] != nil {
+			*defaultHitScale[i] = *c.defaultHitScale[i]
+		}
+	}
+
+	nextHitScale := make(map[int32][3]*HitScale)
+	for i, v := range c.nextHitScale {
+		hitScale := [3]*HitScale{}
+		for i := 0; i < len(v); i++ {
+			if v[i] != nil {
+				*hitScale[i] = *v[i]
+			}
+		}
+		nextHitScale[i] = hitScale
+	}
+	activeHitScale := make(map[int32][3]*HitScale)
+	for i, v := range c.activeHitScale {
+		hitScale := [3]*HitScale{}
+		for i := 0; i < len(v); i++ {
+			if v[i] != nil {
+				// *hitScale[i] = *v[i] causes bugs
+				hitScale[i] = v[i]
+			}
+		}
+		activeHitScale[i] = hitScale
+	}
+
 	return CharState{
-		cmd:                   c.cmd,
+		childrenState:         c.getChildrenState(),
+		enemynearState:        c.getEnemyNearState(),
+		animState:             c.anim.getAnimationState(),
+		cmd:                   commandList,
 		ss:                    c.ss,
 		hitdef:                c.hitdef,
 		redLife:               c.redLife,
@@ -1930,8 +2002,8 @@ func (c *Char) getCharState() CharState {
 		clsnScale:             c.clsnScale,
 		hoIdx:                 c.hoIdx,
 		mctime:                c.mctime,
-		targets:               c.targets,
-		targetsOfHitdef:       c.targetsOfHitdef,
+		targets:               targets,
+		targetsOfHitdef:       targetsOfHitdef,
 		pos:                   c.pos,
 		drawPos:               c.drawPos,
 		oldPos:                c.oldPos,
@@ -1964,7 +2036,7 @@ func (c *Char) getCharState() CharState {
 		keyctrl:               c.keyctrl,
 		power:                 c.power,
 		size:                  c.size,
-		ghv:                   c.ghv,
+		ghv:                   *c.ghv.clone(),
 		hitby:                 c.hitby,
 		ho:                    c.ho,
 		mctype:                c.mctype,
@@ -1976,8 +2048,8 @@ func (c *Char) getCharState() CharState {
 		remapSpr:              c.remapSpr,
 		clipboardText:         c.clipboardText,
 		dialogue:              c.dialogue,
-		defaultHitScale:       c.defaultHitScale,
-		nextHitScale:          c.nextHitScale,
+		defaultHitScale:       defaultHitScale,
+		nextHitScale:          nextHitScale,
 		activeHitScale:        c.activeHitScale,
 
 		CharSystemVar: CharSystemVar{
@@ -2020,6 +2092,26 @@ func (c *Char) getCharState() CharState {
 	}
 }
 func (c *Char) loadCharState(cs CharState) {
+
+	// load children
+	for i, ch := range c.children {
+		// hacky
+		if ch != nil && i < len(cs.childrenState) {
+			ch.loadCharState(cs.childrenState[i])
+		}
+	}
+
+	// load enemeynear
+	for i := 0; i < len(c.enemynear); i++ {
+		for j := 0; j < len(c.enemynear[i]); j++ {
+			if c.enemynear[i][j] != nil {
+				c.enemynear[i][j].loadCharState(cs.enemynearState[i][j])
+			}
+		}
+	}
+	if c.anim != nil {
+		c.anim.loadAnimationState(cs.animState)
+	}
 	c.ss = cs.ss
 	c.cmd = cs.cmd
 	c.hitdef = cs.hitdef
@@ -2129,9 +2221,37 @@ func (c *Char) loadCharState(cs CharState) {
 	c.remapSpr = cs.remapSpr
 	c.clipboardText = cs.clipboardText
 	c.dialogue = cs.dialogue
-	c.defaultHitScale = cs.defaultHitScale
-	c.nextHitScale = cs.nextHitScale
-	c.activeHitScale = cs.activeHitScale
+
+	//c.defaultHitScale = cs.defaultHitScale
+	//c.nextHitScale = cs.nextHitScale
+	//c.activeHitScale = cs.activeHitScale
+
+	for i, v := range c.defaultHitScale {
+		if v != nil && cs.defaultHitScale[i] != nil {
+			*v = *cs.defaultHitScale[i]
+		} else if v == nil && cs.defaultHitScale[i] != nil {
+			c.defaultHitScale[i] = cs.defaultHitScale[i]
+		}
+	}
+	for i, hsa := range c.nextHitScale {
+		for j, h := range hsa {
+			if h != nil && cs.nextHitScale[i][j] != nil {
+				*h = *cs.nextHitScale[i][j]
+			} else if h == nil && cs.nextHitScale[i][j] != nil {
+				hsa[j] = cs.nextHitScale[i][j]
+			}
+		}
+	}
+
+	for i, hsa := range c.activeHitScale {
+		for j, h := range hsa {
+			if h != nil && cs.activeHitScale[i][j] != nil {
+				*h = *cs.activeHitScale[i][j]
+			} else if h == nil && cs.activeHitScale[i][j] != nil {
+				hsa[j] = cs.activeHitScale[i][j]
+			}
+		}
+	}
 }
 
 func (c *Char) clone() (result *Char) {

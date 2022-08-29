@@ -168,8 +168,10 @@ type Animation struct {
 }
 
 func (a *Animation) getAnimationState() AnimationState {
+	frames := make([]AnimFrame, len(a.frames))
+	copy(frames, a.frames)
 	return AnimationState{
-		frames:                     a.frames,
+		frames:                     frames,
 		tile:                       a.tile,
 		loopstart:                  a.loopstart,
 		interpolate_offset:         a.interpolate_offset,

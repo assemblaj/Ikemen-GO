@@ -1465,6 +1465,13 @@ type cmdElem struct {
 	slash, greater, direction bool
 }
 
+func (ce *cmdElem) clone() (result cmdElem) {
+	result = *ce
+	result.key = make([]CommandKey, len(ce.key))
+	copy(result.key, ce.key)
+	return
+}
+
 func (ce *cmdElem) IsDirection() bool {
 	//ここで~は方向コマンドとして返さない
 	return !ce.slash && len(ce.key) == 1 && ce.key[0] < CK_nBs && (ce.key[0] < CK_nB || ce.key[0] > CK_nUF)
@@ -1505,6 +1512,27 @@ type Command struct {
 	cmdi, tamei         int
 	time, cur           int32
 	buftime, curbuftime int32
+}
+
+func (c *Command) clone() (result Command) {
+	result = *c
+
+	result.cmd = make([]cmdElem, len(c.cmd))
+	for i := 0; i < len(c.cmd); i++ {
+		result.cmd[i] = c.cmd[i].clone()
+	}
+
+	result.held = make([]bool, len(c.held))
+	copy(result.held, c.held)
+
+	result.hold = make([][]CommandKey, len(c.hold))
+	for i := 0; i < len(c.hold); i++ {
+		result.hold[i] = make([]CommandKey, len(c.hold[i]))
+		for j := 0; j < len(c.hold[i]); j++ {
+			result.hold[i][j] = c.hold[i][j]
+		}
+	}
+	return
 }
 
 func newCommand() *Command { return &Command{tamei: -1, time: 1, buftime: 1} }
@@ -1952,6 +1980,18 @@ type CommandList struct {
 	Commands          [][]Command
 	DefaultTime       int32
 	DefaultBufferTime int32
+}
+
+func (cl *CommandList) clone() (result CommandList) {
+	result = *cl
+	result.Commands = make([][]Command, len(cl.Commands))
+	for i := 0; i < len(cl.Commands); i++ {
+		result.Commands[i] = make([]Command, len(cl.Commands[i]))
+		for j := 0; j < len(cl.Commands[i]); j++ {
+			result.Commands[i][j] = cl.Commands[i][j].clone()
+		}
+	}
+	return
 }
 
 func NewCommandList(cb *CommandBuffer) *CommandList {

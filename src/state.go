@@ -1,10 +1,16 @@
 package main
 
+import "fmt"
+
 func init() {
 	sys.gameState.randseed = sys.randseed
 }
 
 type CharState struct {
+	childrenState  []CharState
+	enemynearState [2][]CharState
+
+	animState       AnimationState
 	cmd             []CommandList
 	ss              StateState
 	hitdef          HitDef
@@ -88,6 +94,7 @@ type CharState struct {
 }
 
 type ExplodState struct {
+	animState      AnimationState
 	id             int32
 	bindtime       int32
 	scale          [2]float32
@@ -202,6 +209,18 @@ type ProjectileState struct {
 	platformAngle   float32
 	platformFence   bool
 }
+type StageState struct {
+	p           [2]stagePlayer
+	sdw         stageShadow
+	leftbound   float32
+	rightbound  float32
+	screenleft  int32
+	screenright int32
+	stageCamera stageCamera
+	zoffsetlink int32
+	scale       [2]float32
+	reflection  int32
+}
 
 type GameState struct {
 	randseed          int32
@@ -213,8 +232,12 @@ type GameState struct {
 	explDrawlist      [MaxSimul*2 + MaxAttachedChar][]int
 	topexplDrawlist   [MaxSimul*2 + MaxAttachedChar][]int
 	underexplDrawlist [MaxSimul*2 + MaxAttachedChar][]int
-	charMap           map[int32]CharState
-	projMap           map[int32]ProjectileState
+	aiInput           [MaxSimul*2 + MaxAttachedChar]AiInput
+	inputRemap        [MaxSimul*2 + MaxAttachedChar]int
+	autoguard         [MaxSimul*2 + MaxAttachedChar]bool
+
+	charMap map[int32]CharState
+	projMap map[int32]ProjectileState
 
 	com                [MaxSimul*2 + MaxAttachedChar]float32
 	cam                Camera
@@ -244,6 +267,7 @@ type GameState struct {
 	envcol_time         int32
 	bcStack, bcVarStack BytecodeStack
 	bcVar               []BytecodeValue
+	stageState          StageState
 }
 
 func NewGameState() GameState {
@@ -251,6 +275,63 @@ func NewGameState() GameState {
 		charMap: make(map[int32]CharState),
 		projMap: make(map[int32]ProjectileState),
 	}
+}
+
+func (gs *GameState) Equal(other GameState) (equality bool, unequal string) {
+
+	if gs.randseed != other.randseed {
+		return false, fmt.Sprintf("randseed: %d: %d", gs.randseed, other.randseed)
+	}
+
+	if gs.time != other.time {
+		return false, fmt.Sprintf("time: %d: %d", gs.time, other.time)
+	}
+
+	if gs.gameTime != other.gameTime {
+		return false, fmt.Sprintf("gameTime: %d: %d", gs.gameTime, other.gameTime)
+	}
+	return true, ""
+	// projectileState   [MaxSimul*2 + MaxAttachedChar][]ProjectileState
+	// charState         [MaxSimul*2 + MaxAttachedChar][]CharState
+	// explodsState      [MaxSimul*2 + MaxAttachedChar][]ExplodState
+	// explDrawlist      [MaxSimul*2 + MaxAttachedChar][]int
+	// topexplDrawlist   [MaxSimul*2 + MaxAttachedChar][]int
+	// underexplDrawlist [MaxSimul*2 + MaxAttachedChar][]int
+	// aiInput           [MaxSimul*2 + MaxAttachedChar]AiInput
+
+	// charMap map[int32]CharState
+	// projMap map[int32]ProjectileState
+
+	// com                [MaxSimul*2 + MaxAttachedChar]float32
+	// cam                Camera
+	// allPalFX           PalFX
+	// bgPalFX            PalFX
+	// pause              int32
+	// pausetime          int32
+	// pausebg            bool
+	// pauseendcmdbuftime int32
+	// pauseplayer        int
+	// super              int32
+	// supertime          int32
+	// superpausebg       bool
+	// superendcmdbuftime int32
+	// superplayer        int
+	// superdarken        bool
+	// superanim          AnimationState
+	// superanimRef       *Animation
+	// superpmap          PalFX
+	// superpos           [2]float32
+	// superfacing        float32
+	// superp2defmul      float32
+
+	// envShake            EnvShake
+	// specialFlag         GlobalSpecialFlag
+	// envcol              [3]int32
+	// envcol_time         int32
+	// bcStack, bcVarStack BytecodeStack
+	// bcVar               []BytecodeValue
+	// stageState          StageState
+
 }
 
 func (gs *GameState) LoadState() {
@@ -272,6 +353,10 @@ func (gs *GameState) LoadState() {
 	sys.bcStack = gs.bcStack
 	sys.bcVarStack = gs.bcVarStack
 	sys.bcVar = gs.bcVar
+	sys.stage.loadStageState(gs.stageState)
+	sys.aiInput = gs.aiInput
+	sys.inputRemap = gs.inputRemap
+	sys.autoguard = gs.autoguard
 }
 
 func (gs *GameState) SaveState() {
@@ -293,6 +378,10 @@ func (gs *GameState) SaveState() {
 	gs.bcStack = sys.bcStack
 	gs.bcVarStack = sys.bcVarStack
 	gs.bcVar = sys.bcVar
+	gs.stageState = sys.stage.getStageState()
+	gs.aiInput = sys.aiInput
+	gs.inputRemap = sys.inputRemap
+	gs.autoguard = sys.autoguard
 }
 
 func (gs *GameState) savePalFX() {
@@ -379,7 +468,7 @@ func (gs *GameState) charsPersist() bool {
 			return false
 		}
 		for j := 0; j < len(sys.chars[i]); j++ {
-			if sys.chars[i][j].name != gs.charState[i][j].name {
+			if sys.chars[i][j].id != gs.charState[i][j].id {
 				return false
 			}
 		}
@@ -388,30 +477,42 @@ func (gs *GameState) charsPersist() bool {
 }
 
 func (gs *GameState) loadCharData() {
-	/*
-		if gs.charsPersist() {
-			fmt.Println("Chars persisted.")
+	if gs.charsPersist() {
+		fmt.Println("Chars persist")
+		for i := range sys.chars {
+			for j, _ := range sys.chars[i] {
+				sys.chars[i][j].loadCharState(gs.charState[i][j])
+			}
+		}
+	} else {
+		fmt.Println("Chars did not persist.")
+		/*
 			for i := range sys.chars {
 				for j, _ := range sys.chars[i] {
-					sys.chars[i][j].loadCharState(gs.charState[i][j])
+					id := sys.chars[i][j].id
+					state, ok := gs.charMap[id]
+					if ok {
+						sys.chars[i][j].loadCharState(state)
+					}
 				}
-			}
-		} else {
-			fmt.Println("chars did not persist.")
-			sys.chars = gs.deletedChars
-			for i := range gs.charState {
-				for j := range gs.charState[i] {
-					sys.chars[i][j].loadCharState(gs.charState[i][j])
-				}
-			}
-		}*/
+			}*/
 
-	for i := range sys.chars {
-		for j, _ := range sys.chars[i] {
-			id := sys.chars[i][j].id
-			state, ok := gs.charMap[id]
-			if ok {
-				sys.chars[i][j].loadCharState(state)
+		for i := range sys.chars {
+			fmt.Printf("len of chars %d len of charState %d\n", len(sys.chars[i]), len(gs.charState[i]))
+			if len(sys.chars[i]) < len(gs.charState[i]) {
+				for len(sys.chars[i]) < len(gs.charState[i]) {
+					sys.chars[i][0].newHelper()
+				}
+			} else if len(sys.chars[i]) > len(gs.charState[i]) {
+				for len(sys.chars[i]) > len(gs.charState[i]) {
+					sys.chars[i] = sys.chars[i][:len(sys.chars[i])-1]
+				}
+			}
+		}
+
+		for i := range sys.chars {
+			for j, _ := range sys.chars[i] {
+				sys.chars[i][j].loadCharState(gs.charState[i][j])
 			}
 		}
 	}
@@ -482,28 +583,44 @@ func (gs *GameState) projectliesPersist() bool {
 }
 
 func (gs *GameState) loadProjectileData() {
-	// if gs.projectliesPersist() {
-	// 	for i := range sys.projs {
-	// 		for j := range sys.projs[i] {
-	// 			sys.projs[i][j].loadProjectileState(gs.projectileState[i][j])
-	// 		}
-	// 	}
-	// } else {
-	// 	sys.projs = gs.deletedProjs
-	// 	for i := range gs.projectileState {
-	// 		for j := range gs.projectileState[i] {
-	// 			sys.projs[i][j].loadProjectileState(gs.projectileState[i][j])
-	// 		}
-	// 	}
-	// }
-	for i := range sys.projs {
-		for j, _ := range sys.projs[i] {
-			id := sys.projs[i][j].id
-			state, ok := gs.projMap[id]
-			if ok {
-				sys.projs[i][j].loadProjectileState(state)
+	if gs.projectliesPersist() {
+		fmt.Println("Projectiles Persist")
+		for i := range sys.projs {
+			for j := range sys.projs[i] {
+				sys.projs[i][j].loadProjectileState(gs.projectileState[i][j])
 			}
 		}
+	} else {
+		fmt.Println("Projectiles did not persist")
+		for i := range sys.projs {
+			fmt.Printf("len of projs %d len of projsState %d\n", len(sys.projs[i]), len(gs.projectileState[i]))
+			if len(sys.projs[i]) < len(gs.projectileState[i]) {
+				for len(sys.projs[i]) < len(gs.projectileState[i]) {
+					sys.chars[i][0].newProj()
+				}
+			} else if len(sys.projs[i]) > len(gs.projectileState[i]) {
+				for len(sys.projs[i]) > len(gs.projectileState[i]) {
+					sys.projs[i] = sys.projs[i][:len(sys.projs[i])-1]
+				}
+			}
+		}
+		/*
+			for i := range sys.projs {
+				for j, _ := range sys.projs[i] {
+					id := sys.projs[i][j].id
+					state, ok := gs.projMap[id]
+					if ok {
+						sys.projs[i][j].loadProjectileState(state)
+					}
+				}
+			}*/
+
+		for i := range sys.projs {
+			for j := range sys.projs[i] {
+				sys.projs[i][j].loadProjectileState(gs.projectileState[i][j])
+			}
+		}
+
 	}
 
 }
