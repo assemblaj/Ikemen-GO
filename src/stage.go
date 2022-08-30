@@ -644,6 +644,7 @@ func (s *Stage) getStageState() StageState {
 		scale:       s.scale,
 		sdw:         s.sdw,
 		reflection:  s.reflection,
+		stageTime:   s.stageTime,
 	}
 }
 func (s *Stage) loadStageState(ss StageState) {
@@ -657,7 +658,7 @@ func (s *Stage) loadStageState(ss StageState) {
 	s.scale = ss.scale
 	s.sdw = ss.sdw
 	s.reflection = ss.reflection
-
+	s.stageTime = ss.stageTime
 }
 
 func newStage(def string) *Stage {

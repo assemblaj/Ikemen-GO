@@ -2092,24 +2092,54 @@ func (c *Char) getCharState() CharState {
 		},
 	}
 }
+func (c *Char) enemynearEqual(cs [2][]CharState) bool {
+	if len(cs[0]) != len(c.enemynear[0]) || len(cs[1]) != len(c.enemynear[1]) {
+		return false
+	}
+	for i := 0; i < len(c.enemynear); i++ {
+		for j := 0; j < len(c.enemynear[i]); j++ {
+			if c.enemynear[i][j].id != cs[i][j].id {
+				return false
+			}
+		}
+	}
+	return true
+}
 func (c *Char) loadCharState(cs CharState) {
 
 	// load children
-	for i, ch := range c.children {
-		// hacky
-		if ch != nil && i < len(cs.childrenState) {
-			ch.loadCharState(cs.childrenState[i])
+	for i := range cs.childrenState {
+		c := cs.childrenState[i].findChar()
+		if c != nil {
+			c.children[i] = c
+			c.children[i].loadCharState(cs.childrenState[i])
 		}
 	}
 
-	// load enemeynear
-	for i := 0; i < len(c.enemynear); i++ {
-		for j := 0; j < len(c.enemynear[i]); j++ {
-			if c.enemynear[i][j] != nil {
+	if c.enemynearEqual(cs.enemynearState) {
+		// load enemeynear
+		for i := 0; i < len(c.enemynear); i++ {
+			for j := 0; j < len(c.enemynear[i]); j++ {
+				if c.enemynear[i][j] != nil {
+					c.enemynear[i][j].loadCharState(cs.enemynearState[i][j])
+				}
+			}
+		}
+	} else {
+		for i := 0; i < len(cs.enemynearState); i++ {
+			c.enemynear[i] = make([]*Char, len(cs.enemynearState[i]))
+			for j := 0; j < len(cs.enemynearState[i]); j++ {
+				ch := cs.enemynearState[i][j].findChar()
+				if ch == nil {
+					c.enemynear[i][j] = &Char{}
+				} else {
+					c.enemynear[i][j] = ch
+				}
 				c.enemynear[i][j].loadCharState(cs.enemynearState[i][j])
 			}
 		}
 	}
+
 	if c.anim != nil {
 		c.anim.loadAnimationState(cs.animState)
 	}

@@ -8,16 +8,37 @@ import (
 
 func init() {
 	sys.gameState.randseed = sys.randseed
-	binary.Write(sys.replayState.state, binary.LittleEndian, &sys.randseed)
 }
 
 type ReplayState struct {
 	state      *bytes.Buffer
-	buf        [MaxSimul*2 + MaxAttachedChar]NetBuffer
+	ib         [MaxSimul*2 + MaxAttachedChar]InputBits
 	locIn      int
 	remIn      int
 	time       int32
 	stoppedcnt int32
+}
+
+func (rs *ReplayState) Input(cb *CommandBuffer, i int, facing int32) {
+	if i >= 0 && i < len(rs.ib) {
+		rs.ib[sys.inputRemap[i]].GetInput(cb, facing)
+	}
+}
+func (rs *ReplayState) AnyButton() bool {
+	for _, b := range rs.ib {
+		if b&IB_anybutton != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (rs *ReplayState) Update() bool {
+	if sys.oldNextAddTime > 0 &&
+		binary.Read(rs.state, binary.LittleEndian, rs.ib[:]) != nil {
+		sys.esc = true
+	}
+	return !sys.gameEnd
 }
 
 func NewReplayState() ReplayState {
@@ -112,6 +133,17 @@ type CharState struct {
 	defaultHitScale [3]*HitScale
 	nextHitScale    map[int32][3]*HitScale
 	activeHitScale  map[int32][3]*HitScale
+}
+
+func (cs *CharState) findChar() *Char {
+	for i := 0; i < len(sys.chars); i++ {
+		for j := 0; j < len(sys.chars[i]); j++ {
+			if cs.id == sys.chars[i][j].id {
+				return sys.chars[i][j]
+			}
+		}
+	}
+	return nil
 }
 
 type ExplodState struct {
@@ -242,6 +274,7 @@ type StageState struct {
 	zoffsetlink int32
 	scale       [2]float32
 	reflection  int32
+	stageTime   int32
 }
 
 type GameState struct {
@@ -832,14 +865,13 @@ func (gs *GameState) loadCharData() {
 			}
 		}
 	}
-	if sys.workingChar != nil {
-		if gs.workingCharState.id == sys.workingChar.id {
-			sys.workingChar.loadCharState(gs.workingCharState)
-		}
-	} else {
-		sys.workingChar = &Char{}
-		sys.workingChar.loadCharState(gs.workingCharState)
+
+	wc := gs.workingCharState.findChar()
+	if wc == nil {
+		wc = &Char{}
 	}
+	sys.workingChar = wc
+	sys.workingChar.loadCharState(gs.workingCharState)
 }
 
 func (gs *GameState) loadSuperData() {
