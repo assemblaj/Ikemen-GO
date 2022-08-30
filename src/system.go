@@ -91,8 +91,6 @@ var sys = System{
 	panningRange:         30,
 	windowCentered:       true,
 	gameState:            NewGameState(),
-	savedStates:          make([]GameState, 0),
-	loadStates:           make([]GameState, 0),
 }
 
 type TeamMode int32
@@ -361,11 +359,6 @@ type System struct {
 	gameState       GameState
 	loadStateFlag   bool
 	saveStateFlag   bool
-	savedStates     []GameState
-	loadStates      []GameState
-	rollbackSave    bool
-	rollbackLoad    bool
-	rollbacks       int
 }
 
 type Window struct {
@@ -2015,43 +2008,11 @@ func (s *System) fight() (reload bool) {
 
 		if s.saveStateFlag {
 			s.gameState.SaveState()
-			s.rollbackSave = true
 		} else if s.loadStateFlag {
 			s.gameState.LoadState()
-			s.rollbackLoad = true
 		}
 		s.saveStateFlag = false
 		s.loadStateFlag = false
-		if s.rollbackSave {
-			fmt.Println("I'm here in rollbackSave")
-			state := NewGameState()
-			state.SaveState()
-			s.savedStates = append(s.savedStates, state)
-			s.rollbacks++
-			if s.rollbacks > 3 {
-				s.rollbackSave = false
-				s.rollbacks = 0
-			}
-		}
-		if s.rollbackLoad {
-			fmt.Println("I'm in rollbackLod")
-			state := NewGameState()
-			state.SaveState()
-			s.loadStates = append(s.loadStates, state)
-			s.rollbacks++
-			if s.rollbacks > 3 {
-				s.rollbackLoad = false
-				s.rollbacks = 0
-			}
-		}
-		if len(s.savedStates) == 4 && len(s.loadStates) == 4 {
-			for i := 0; i < 4; i++ {
-				eq, vals := s.savedStates[i].Equal(s.loadStates[i])
-				if !eq {
-					fmt.Printf("Frame %d: %s\n", i, vals)
-				}
-			}
-		}
 
 		// If next round
 		if s.roundOver() && !fin {

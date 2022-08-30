@@ -1013,6 +1013,7 @@ func (e *Explod) getExplodState() ExplodState {
 		palfxdef:       e.palfxdef,
 		window:         e.window,
 		localscl:       e.localscl,
+		palFX:          *e.palfx,
 	}
 }
 
@@ -1054,6 +1055,7 @@ func (e *Explod) loadExplodState(es ExplodState) {
 	e.palfxdef = es.palfxdef
 	e.window = es.window
 	e.localscl = es.localscl
+	e.palfx.loadPalFX(es.palFX)
 }
 
 func (e *Explod) clear() {
@@ -2050,8 +2052,7 @@ func (c *Char) getCharState() CharState {
 		dialogue:              c.dialogue,
 		defaultHitScale:       defaultHitScale,
 		nextHitScale:          nextHitScale,
-		activeHitScale:        c.activeHitScale,
-
+		activeHitScale:        activeHitScale,
 		CharSystemVar: CharSystemVar{
 			airJumpCount:     c.airJumpCount,
 			hitCount:         c.hitCount,
@@ -2113,7 +2114,15 @@ func (c *Char) loadCharState(cs CharState) {
 		c.anim.loadAnimationState(cs.animState)
 	}
 	c.ss = cs.ss
-	c.cmd = cs.cmd
+
+	if len(c.cmd) == len(cs.cmd) {
+		for i := 0; i < len(c.cmd); i++ {
+			c.cmd[i].loadCommandList(cs.cmd[i])
+		}
+	} else {
+		c.cmd = cs.cmd
+	}
+
 	c.hitdef = cs.hitdef
 	c.redLife = cs.redLife
 	c.juggle = cs.juggle
@@ -2221,7 +2230,6 @@ func (c *Char) loadCharState(cs CharState) {
 	c.remapSpr = cs.remapSpr
 	c.clipboardText = cs.clipboardText
 	c.dialogue = cs.dialogue
-
 	//c.defaultHitScale = cs.defaultHitScale
 	//c.nextHitScale = cs.nextHitScale
 	//c.activeHitScale = cs.activeHitScale

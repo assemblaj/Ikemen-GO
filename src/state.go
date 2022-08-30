@@ -7,6 +7,7 @@ func init() {
 }
 
 type CharState struct {
+	palFX          PalFX
 	childrenState  []CharState
 	enemynearState [2][]CharState
 
@@ -129,6 +130,7 @@ type ExplodState struct {
 	palfxdef       PalFXDef
 	window         [4]float32
 	localscl       float32
+	palFX          PalFX
 }
 
 type AnimationState struct {
@@ -268,6 +270,83 @@ type GameState struct {
 	bcStack, bcVarStack BytecodeStack
 	bcVar               []BytecodeValue
 	stageState          StageState
+	workBe              []BytecodeExp
+
+	scrrect                 [4]int32
+	gameWidth, gameHeight   int32
+	widthScale, heightScale float32
+	gameEnd, frameSkip      bool
+	brightness              int32
+	roundTime               int32
+	lifeMul                 float32
+	team1VS2Life            float32
+	turnsRecoveryRate       float32
+	match                   int32
+	round                   int32
+	intro                   int32
+	lastHitter              [2]int
+	winTeam                 int
+	winType                 [2]WinType
+	winTrigger              [2]WinType
+	matchWins, wins         [2]int32
+	roundsExisted           [2]int32
+	draws                   int32
+	tmode                   [2]TeamMode
+	numSimul, numTurns      [2]int32
+	esc                     bool
+	workingCharState        CharState
+	workingStateState       StateBytecode
+	afterImageMax           int32
+	comboExtraFrameWindow   int32
+	envcol_under            bool
+	helperMax               int32
+	nextCharId              int32
+	powerShare              [2]bool
+	tickCount               int
+	oldTickCount            int
+	tickCountF              float32
+	lastTick                float32
+	nextAddTime             float32
+	oldNextAddTime          float32
+	screenleft              float32
+	screenright             float32
+	xmin, xmax              float32
+	winskipped              bool
+	paused, step            bool
+	roundResetFlg           bool
+	reloadFlg               bool
+	reloadStageFlg          bool
+	reloadLifebarFlg        bool
+	reloadCharSlot          [MaxSimul*2 + MaxAttachedChar]bool
+	turbo                   float32
+	drawScale               float32
+	zoomlag                 float32
+	zoomScale               float32
+	zoomPosXLag             float32
+	zoomPosYLag             float32
+	enableZoomstate         bool
+	zoomCameraBound         bool
+	zoomPos                 [2]float32
+	finish                  FinishType
+	waitdown                int32
+	slowtime                int32
+	shuttertime             int32
+	fadeintime              int32
+	fadeouttime             int32
+	changeStateNest         int32
+	drawc1                  ClsnRect
+	drawc2                  ClsnRect
+	drawc2sp                ClsnRect
+	drawc2mtk               ClsnRect
+	drawwh                  ClsnRect
+	accel                   float32
+	clsnDraw                bool
+	statusDraw              bool
+	explodMax               int
+	workpal                 []uint32
+	playerProjectileMax     int
+	nomusic                 bool
+	lifeShare               [2]bool
 }
 
 func NewGameState() GameState {
@@ -357,6 +436,106 @@ func (gs *GameState) LoadState() {
 	sys.aiInput = gs.aiInput
 	sys.inputRemap = gs.inputRemap
 	sys.autoguard = gs.autoguard
+	sys.workBe = gs.workBe
+
+	sys.finish = gs.finish
+	sys.winTeam = gs.winTeam
+	sys.winType = gs.winType
+	sys.winTrigger = gs.winTrigger
+	sys.lastHitter = gs.lastHitter
+	sys.waitdown = gs.waitdown
+	sys.slowtime = gs.slowtime
+	sys.shuttertime = gs.shuttertime
+	sys.fadeintime = gs.fadeintime
+	sys.fadeouttime = gs.fadeouttime
+	sys.winskipped = gs.winskipped
+	sys.intro = gs.intro
+	sys.time = gs.time
+	sys.nextCharId = gs.nextCharId
+
+	sys.scrrect = gs.scrrect
+	sys.gameWidth = gs.gameWidth
+	sys.gameHeight = gs.gameHeight
+	sys.widthScale = gs.widthScale
+	sys.heightScale = gs.heightScale
+	sys.gameEnd = gs.gameEnd
+	sys.frameSkip = gs.frameSkip
+	sys.brightness = gs.brightness
+	sys.roundTime = gs.roundTime
+	sys.lifeMul = gs.lifeMul
+	sys.team1VS2Life = gs.team1VS2Life
+	sys.turnsRecoveryRate = gs.turnsRecoveryRate
+
+	sys.changeStateNest = gs.changeStateNest
+	copy(sys.drawc1, gs.drawc1)
+	copy(sys.drawc2, gs.drawc2)
+	copy(sys.drawc2sp, gs.drawc2sp)
+	copy(sys.drawc2mtk, gs.drawc2mtk)
+	copy(sys.drawwh, gs.drawwh)
+	sys.accel = gs.accel
+	sys.clsnDraw = gs.clsnDraw
+	sys.statusDraw = gs.statusDraw
+	sys.explodMax = gs.explodMax
+	copy(sys.workpal, gs.workpal)
+	sys.playerProjectileMax = gs.playerProjectileMax
+	sys.nomusic = gs.nomusic
+	sys.lifeShare = gs.lifeShare
+
+	sys.turbo = gs.turbo
+	sys.drawScale = gs.drawScale
+	sys.zoomlag = gs.zoomlag
+	sys.zoomScale = gs.zoomScale
+	sys.zoomPosXLag = gs.zoomPosXLag
+	sys.zoomPosYLag = gs.zoomPosYLag
+	sys.enableZoomstate = gs.enableZoomstate
+	sys.zoomCameraBound = gs.zoomCameraBound
+	sys.zoomPos = gs.zoomPos
+
+	sys.reloadCharSlot = gs.reloadCharSlot
+	sys.turbo = gs.turbo
+	sys.drawScale = gs.drawScale
+	sys.zoomlag = gs.zoomlag
+	sys.zoomScale = gs.zoomScale
+	sys.zoomPosXLag = gs.zoomPosXLag
+
+	sys.matchWins = gs.matchWins
+	sys.wins = gs.wins
+	sys.roundsExisted = gs.roundsExisted
+	sys.draws = gs.draws
+	sys.tmode = gs.tmode
+	sys.numSimul = gs.numSimul
+	sys.numTurns = gs.numTurns
+	sys.esc = gs.esc
+	sys.afterImageMax = gs.afterImageMax
+	sys.comboExtraFrameWindow = gs.comboExtraFrameWindow
+	sys.envcol_under = gs.envcol_under
+	sys.helperMax = gs.helperMax
+	sys.nextCharId = gs.nextCharId
+	sys.powerShare = gs.powerShare
+	sys.tickCount = gs.tickCount
+	sys.oldTickCount = gs.oldTickCount
+	sys.tickCountF = gs.tickCountF
+	sys.lastTick = gs.lastTick
+	sys.nextAddTime = gs.nextAddTime
+	sys.oldNextAddTime = gs.oldNextAddTime
+	sys.screenleft = gs.screenleft
+	sys.screenright = gs.screenright
+	sys.xmin = gs.xmin
+	sys.xmax = gs.xmax
+	sys.winskipped = gs.winskipped
+	sys.paused = gs.paused
+	sys.step = gs.step
+	sys.roundResetFlg = gs.roundResetFlg
+	sys.reloadFlg = gs.reloadFlg
+	sys.reloadStageFlg = gs.reloadStageFlg
+	sys.reloadLifebarFlg = gs.reloadLifebarFlg
+
+	sys.match = gs.match
+	sys.round = gs.round
+
+	if sys.workingState != nil {
+		*sys.workingState = gs.workingStateState
+	}
 }
 
 func (gs *GameState) SaveState() {
@@ -382,6 +561,115 @@ func (gs *GameState) SaveState() {
 	gs.aiInput = sys.aiInput
 	gs.inputRemap = sys.inputRemap
 	gs.autoguard = sys.autoguard
+	gs.workBe = make([]BytecodeExp, len(sys.workBe))
+	copy(gs.workBe, sys.workBe)
+
+	gs.finish = sys.finish
+	gs.winTeam = sys.winTeam
+	gs.winType = sys.winType
+	gs.winTrigger = sys.winTrigger
+	gs.lastHitter = sys.lastHitter
+	gs.waitdown = sys.waitdown
+	gs.slowtime = sys.slowtime
+	gs.shuttertime = sys.shuttertime
+	gs.fadeintime = sys.fadeintime
+	gs.fadeouttime = sys.fadeouttime
+	gs.winskipped = sys.winskipped
+	gs.intro = sys.intro
+	gs.time = sys.time
+	gs.nextCharId = sys.nextCharId
+
+	gs.scrrect = sys.scrrect
+	gs.gameWidth = sys.gameWidth
+	gs.gameHeight = sys.gameHeight
+	gs.widthScale = sys.widthScale
+	gs.heightScale = sys.heightScale
+	gs.gameEnd = sys.gameEnd
+	gs.frameSkip = sys.frameSkip
+	gs.brightness = sys.brightness
+	gs.roundTime = sys.roundTime
+	gs.lifeMul = sys.lifeMul
+	gs.team1VS2Life = sys.team1VS2Life
+	gs.turnsRecoveryRate = sys.turnsRecoveryRate
+
+	gs.changeStateNest = sys.changeStateNest
+
+	gs.drawc1 = make(ClsnRect, len(sys.drawc1))
+	copy(gs.drawc1, sys.drawc1)
+	gs.drawc2 = make(ClsnRect, len(sys.drawc2))
+	copy(gs.drawc2, sys.drawc2)
+	gs.drawc2sp = make(ClsnRect, len(sys.drawc2sp))
+	copy(gs.drawc2sp, sys.drawc2sp)
+	gs.drawc2mtk = make(ClsnRect, len(sys.drawc2mtk))
+	copy(gs.drawc2mtk, sys.drawc2mtk)
+	gs.drawwh = make(ClsnRect, len(sys.drawwh))
+	copy(gs.drawwh, sys.drawwh)
+
+	gs.accel = sys.accel
+	gs.clsnDraw = sys.clsnDraw
+	gs.statusDraw = sys.statusDraw
+	gs.explodMax = sys.explodMax
+	gs.workpal = make([]uint32, len(sys.workpal))
+	copy(gs.workpal, sys.workpal)
+	gs.playerProjectileMax = sys.playerProjectileMax
+	gs.nomusic = sys.nomusic
+	gs.lifeShare = sys.lifeShare
+
+	gs.turbo = sys.turbo
+	gs.drawScale = sys.drawScale
+	gs.zoomlag = sys.zoomlag
+	gs.zoomScale = sys.zoomScale
+	gs.zoomPosXLag = sys.zoomPosXLag
+	gs.zoomPosYLag = sys.zoomPosYLag
+	gs.enableZoomstate = sys.enableZoomstate
+	gs.zoomCameraBound = sys.zoomCameraBound
+	gs.zoomPos = sys.zoomPos
+
+	gs.reloadCharSlot = sys.reloadCharSlot
+	gs.turbo = sys.turbo
+	gs.drawScale = sys.drawScale
+	gs.zoomlag = sys.zoomlag
+	gs.zoomScale = sys.zoomScale
+	gs.zoomPosXLag = sys.zoomPosXLag
+
+	gs.matchWins = sys.matchWins
+	gs.wins = sys.wins
+	gs.roundsExisted = sys.roundsExisted
+	gs.draws = sys.draws
+	gs.tmode = sys.tmode
+	gs.numSimul = sys.numSimul
+	gs.numTurns = sys.numTurns
+	gs.esc = sys.esc
+	gs.afterImageMax = sys.afterImageMax
+	gs.comboExtraFrameWindow = sys.comboExtraFrameWindow
+	gs.envcol_under = sys.envcol_under
+	gs.helperMax = sys.helperMax
+	gs.nextCharId = sys.nextCharId
+	gs.powerShare = sys.powerShare
+	gs.tickCount = sys.tickCount
+	gs.oldTickCount = sys.oldTickCount
+	gs.tickCountF = sys.tickCountF
+	gs.lastTick = sys.lastTick
+	gs.nextAddTime = sys.nextAddTime
+	gs.oldNextAddTime = sys.oldNextAddTime
+	gs.screenleft = sys.screenleft
+	gs.screenright = sys.screenright
+	gs.xmin = sys.xmin
+	gs.xmax = sys.xmax
+	gs.winskipped = sys.winskipped
+	gs.paused = sys.paused
+	gs.step = sys.step
+	gs.roundResetFlg = sys.roundResetFlg
+	gs.reloadFlg = sys.reloadFlg
+	gs.reloadStageFlg = sys.reloadStageFlg
+	gs.reloadLifebarFlg = sys.reloadLifebarFlg
+
+	gs.match = sys.match
+	gs.round = sys.round
+
+	if sys.workingState != nil {
+		gs.workingStateState = *sys.workingState
+	}
 }
 
 func (gs *GameState) savePalFX() {
@@ -396,6 +684,10 @@ func (gs *GameState) saveCharData() {
 			gs.charState[i][j] = c.getCharState()
 			gs.charMap[gs.charState[i][j].id] = gs.charState[i][j]
 		}
+	}
+
+	if sys.workingChar != nil {
+		gs.workingCharState = sys.workingChar.getCharState()
 	}
 }
 
@@ -516,7 +808,11 @@ func (gs *GameState) loadCharData() {
 			}
 		}
 	}
-
+	if sys.workingChar != nil {
+		if gs.workingCharState.name == sys.workingChar.name {
+			sys.workingChar.loadCharState(gs.workingCharState)
+		}
+	}
 }
 
 func (gs *GameState) loadSuperData() {

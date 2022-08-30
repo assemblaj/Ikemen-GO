@@ -47,6 +47,25 @@ type PalFX struct {
 	eColor     float32
 }
 
+func (pf *PalFX) loadPalFX(px PalFX) {
+	pf.time = px.time
+	pf.color = px.color
+	pf.add = px.add
+	pf.mul = px.mul
+	pf.sinadd = px.sinadd
+	pf.cycletime = px.cycletime
+	pf.invertall = px.invertall
+	copy(pf.remap, px.remap)
+	pf.negType = px.negType
+	pf.sintime = px.sintime
+	pf.enable = px.enable
+	pf.eNegType = px.eNegType
+	pf.eInvertall = px.eInvertall
+	pf.eAdd = px.eAdd
+	pf.eMul = px.eMul
+	pf.eColor = px.eColor
+}
+
 func newPalFX() *PalFX { return &PalFX{} }
 func (pf *PalFX) clear2(nt bool) {
 	pf.PalFXDef = PalFXDef{color: 1, mul: [...]int32{256, 256, 256}}
@@ -267,7 +286,7 @@ func (pl *PaletteList) SwapPalMap(palMap *[]int) bool {
 func PaletteToTexture(pal []uint32) *Texture {
 	tx := newTexture()
 	tx.SetData(256, 1, 32, false,
-		unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal) * 4))
+		unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4))
 	return tx
 }
 
@@ -1000,10 +1019,10 @@ func (s *Sprite) Draw(x, y, xscale, yscale, angle float32, fx *PalFX, window *[4
 	}
 	rp := RenderParams{
 		s.Tex, s.PalTex, s.Size,
-		-x*sys.widthScale, -y*sys.heightScale, notiling,
-		xscale*sys.widthScale, xscale*sys.widthScale, yscale*sys.heightScale, 1, 0,
-		Rotation{angle, 0, 0}, sys.brightness*255>>8|1<<9, 0, fx, window, 0, 0, 0, 0,
-		-xscale*float32(s.Offset[0]), -yscale*float32(s.Offset[1]),
+		-x * sys.widthScale, -y * sys.heightScale, notiling,
+		xscale * sys.widthScale, xscale * sys.widthScale, yscale * sys.heightScale, 1, 0,
+		Rotation{angle, 0, 0}, sys.brightness*255>>8 | 1<<9, 0, fx, window, 0, 0, 0, 0,
+		-xscale * float32(s.Offset[0]), -yscale * float32(s.Offset[1]),
 	}
 	RenderSprite(rp)
 }

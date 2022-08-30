@@ -1984,6 +1984,8 @@ type CommandList struct {
 
 func (cl *CommandList) clone() (result CommandList) {
 	result = *cl
+	result.Buffer = &CommandBuffer{}
+	*result.Buffer = *cl.Buffer
 	result.Commands = make([][]Command, len(cl.Commands))
 	for i := 0; i < len(cl.Commands); i++ {
 		result.Commands[i] = make([]Command, len(cl.Commands[i]))
@@ -1992,6 +1994,14 @@ func (cl *CommandList) clone() (result CommandList) {
 		}
 	}
 	return
+}
+
+func (cl *CommandList) loadCommandList(c CommandList) {
+	*cl.Buffer = *c.Buffer
+	cl.Commands = c.Commands
+	cl.Names = c.Names
+	cl.DefaultTime = c.DefaultTime
+	cl.DefaultBufferTime = c.DefaultBufferTime
 }
 
 func NewCommandList(cb *CommandBuffer) *CommandList {
