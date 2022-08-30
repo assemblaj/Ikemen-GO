@@ -91,6 +91,7 @@ var sys = System{
 	panningRange:         30,
 	windowCentered:       true,
 	gameState:            NewGameState(),
+	replayState:          NewReplayState(),
 }
 
 type TeamMode int32
@@ -359,6 +360,7 @@ type System struct {
 	gameState       GameState
 	loadStateFlag   bool
 	saveStateFlag   bool
+	replayState     ReplayState
 }
 
 type Window struct {

@@ -1,9 +1,29 @@
 package main
 
-import "fmt"
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+)
 
 func init() {
 	sys.gameState.randseed = sys.randseed
+	binary.Write(sys.replayState.state, binary.LittleEndian, &sys.randseed)
+}
+
+type ReplayState struct {
+	state      *bytes.Buffer
+	buf        [MaxSimul*2 + MaxAttachedChar]NetBuffer
+	locIn      int
+	remIn      int
+	time       int32
+	stoppedcnt int32
+}
+
+func NewReplayState() ReplayState {
+	return ReplayState{
+		state: bytes.NewBuffer([]byte{}),
+	}
 }
 
 type CharState struct {
@@ -536,6 +556,9 @@ func (gs *GameState) LoadState() {
 	if sys.workingState != nil {
 		*sys.workingState = gs.workingStateState
 	}
+	// else {
+	// 	sys.workingState = &gs.workingStateState
+	// }
 }
 
 func (gs *GameState) SaveState() {
@@ -670,6 +693,7 @@ func (gs *GameState) SaveState() {
 	if sys.workingState != nil {
 		gs.workingStateState = *sys.workingState
 	}
+
 }
 
 func (gs *GameState) savePalFX() {
@@ -809,9 +833,12 @@ func (gs *GameState) loadCharData() {
 		}
 	}
 	if sys.workingChar != nil {
-		if gs.workingCharState.name == sys.workingChar.name {
+		if gs.workingCharState.id == sys.workingChar.id {
 			sys.workingChar.loadCharState(gs.workingCharState)
 		}
+	} else {
+		sys.workingChar = &Char{}
+		sys.workingChar.loadCharState(gs.workingCharState)
 	}
 }
 
