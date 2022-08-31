@@ -446,6 +446,8 @@ type GameState struct {
 	playerProjectileMax     int
 	nomusic                 bool
 	lifeShare               [2]bool
+	keyConfig               []KeyConfig
+	joystickConfig          []KeyConfig
 }
 
 func NewGameState() GameState {
@@ -598,6 +600,9 @@ func (gs *GameState) LoadState() {
 	// else {
 	// 	sys.workingState = &gs.workingStateState
 	// }
+
+	copy(sys.keyConfig, gs.keyConfig)
+	copy(sys.joystickConfig, gs.joystickConfig)
 }
 
 func (gs *GameState) SaveState() {
@@ -733,6 +738,11 @@ func (gs *GameState) SaveState() {
 		gs.workingStateState = *sys.workingState
 	}
 
+	gs.keyConfig = make([]KeyConfig, len(sys.keyConfig))
+	copy(gs.keyConfig, sys.keyConfig)
+
+	gs.joystickConfig = make([]KeyConfig, len(sys.joystickConfig))
+	copy(gs.joystickConfig, sys.joystickConfig)
 }
 
 func (gs *GameState) savePalFX() {
