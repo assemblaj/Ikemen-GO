@@ -91,7 +91,6 @@ var sys = System{
 	panningRange:         30,
 	windowCentered:       true,
 	gameState:            NewGameState(),
-	replayState:          NewReplayState(),
 }
 
 type TeamMode int32
@@ -360,7 +359,9 @@ type System struct {
 	gameState       GameState
 	loadStateFlag   bool
 	saveStateFlag   bool
-	replayState     ReplayState
+	replayState     *ReplayState
+	saveReplayState bool
+	playReplayState bool
 }
 
 type Window struct {
@@ -638,6 +639,14 @@ func (s *System) update() bool {
 		s.await(FPS)
 		return s.netInput.Update()
 	}
+	if s.replayState != nil {
+		s.await(FPS)
+		if s.saveReplayState {
+			return sys.replayState.RecordUpdate()
+		} else if s.playReplayState {
+			return sys.replayState.PlayUpdate()
+		}
+	}
 	return s.await(FPS)
 }
 func (s *System) tickSound() {
@@ -710,6 +719,13 @@ func (s *System) anyButton() bool {
 	}
 	if s.netInput != nil {
 		return s.netInput.AnyButton()
+	}
+	if s.replayState != nil {
+		if s.saveReplayState {
+			return s.replayState.RecordAnyButton()
+		} else if s.playReplayState {
+			return s.replayState.PlayAnyButton()
+		}
 	}
 	return s.anyHardButton()
 }
@@ -2010,8 +2026,14 @@ func (s *System) fight() (reload bool) {
 
 		if s.saveStateFlag {
 			s.gameState.SaveState()
+			//replayState := NewReplayState()
+			//s.replayState = &replayState
+			//s.saveReplayState = true
+			//s.playReplayState = false
 		} else if s.loadStateFlag {
 			s.gameState.LoadState()
+			//s.saveReplayState = false
+			//s.playReplayState = true
 		}
 		s.saveStateFlag = false
 		s.loadStateFlag = false

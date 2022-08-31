@@ -2022,6 +2022,12 @@ func (cl *CommandList) Input(i int, facing int32, aiLevel float32, ib InputBits)
 		sys.fileInput.Input(cl.Buffer, i, facing)
 	} else if sys.netInput != nil {
 		sys.netInput.Input(cl.Buffer, i, facing)
+	} else if sys.replayState != nil {
+		if sys.saveReplayState {
+			sys.replayState.RecordInput(cl.Buffer, i, facing)
+		} else if sys.playReplayState {
+			sys.replayState.PlayInput(cl.Buffer, i, facing)
+		}
 	} else {
 		_else = true
 	}

@@ -171,6 +171,7 @@ func (a *Animation) getAnimationState() AnimationState {
 	frames := make([]AnimFrame, len(a.frames))
 	copy(frames, a.frames)
 	return AnimationState{
+		ptr:                        a,
 		frames:                     frames,
 		tile:                       a.tile,
 		loopstart:                  a.loopstart,

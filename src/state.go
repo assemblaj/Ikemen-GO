@@ -13,18 +13,33 @@ func init() {
 type ReplayState struct {
 	state      *bytes.Buffer
 	ib         [MaxSimul*2 + MaxAttachedChar]InputBits
+	buf        [MaxSimul*2 + MaxAttachedChar]NetBuffer
+	delay      int32
 	locIn      int
 	remIn      int
 	time       int32
 	stoppedcnt int32
 }
 
-func (rs *ReplayState) Input(cb *CommandBuffer, i int, facing int32) {
+func (rs *ReplayState) RecordInput(cb *CommandBuffer, i int, facing int32) {
+	fmt.Println("RecordInput.")
+
+	if i >= 0 && i < len(rs.buf) {
+		rs.buf[sys.inputRemap[i]].input(cb, facing)
+	}
+}
+
+func (rs *ReplayState) PlayInput(cb *CommandBuffer, i int, facing int32) {
+	fmt.Println("PlayInput.")
+
 	if i >= 0 && i < len(rs.ib) {
 		rs.ib[sys.inputRemap[i]].GetInput(cb, facing)
 	}
 }
-func (rs *ReplayState) AnyButton() bool {
+
+func (rs *ReplayState) PlayAnyButton() bool {
+	fmt.Println("PlayAnyButton.")
+
 	for _, b := range rs.ib {
 		if b&IB_anybutton != 0 {
 			return true
@@ -32,11 +47,40 @@ func (rs *ReplayState) AnyButton() bool {
 	}
 	return false
 }
+func (rs *ReplayState) RecordUpdate() bool {
+	fmt.Println("RecordUpdate.")
 
-func (rs *ReplayState) Update() bool {
+	if !sys.gameEnd {
+		fmt.Println("I'm here in RecordUpdateLoop.")
+		rs.buf[rs.locIn].localUpdate(0)
+		if rs.state != nil {
+			for _, nb := range rs.buf {
+				fmt.Println("I wrote to some state.")
+				binary.Write(rs.state, binary.LittleEndian, &nb.buf[rs.time&31])
+			}
+		}
+		rs.time++
+	}
+	return !sys.gameEnd
+}
+
+func (rs *ReplayState) RecordAnyButton() bool {
+	fmt.Println("RecordAnyButton.")
+
+	for _, nb := range rs.buf {
+		if nb.buf[nb.curT&31]&IB_anybutton != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (rs *ReplayState) PlayUpdate() bool {
+	fmt.Println("PlayUpdate.")
 	if sys.oldNextAddTime > 0 &&
 		binary.Read(rs.state, binary.LittleEndian, rs.ib[:]) != nil {
-		sys.esc = true
+		sys.playReplayState = false
+		rs = nil
 	}
 	return !sys.gameEnd
 }
@@ -186,6 +230,7 @@ type ExplodState struct {
 }
 
 type AnimationState struct {
+	ptr                *Animation
 	frames             []AnimFrame
 	tile               Tiling
 	loopstart          int32
@@ -217,6 +262,7 @@ type AnimationState struct {
 	start_scale                [2]float32
 }
 type ProjectileState struct {
+	ptr             *Projectile
 	hitdef          HitDef
 	id              int32
 	anim            int32
@@ -423,46 +469,6 @@ func (gs *GameState) Equal(other GameState) (equality bool, unequal string) {
 		return false, fmt.Sprintf("gameTime: %d: %d", gs.gameTime, other.gameTime)
 	}
 	return true, ""
-	// projectileState   [MaxSimul*2 + MaxAttachedChar][]ProjectileState
-	// charState         [MaxSimul*2 + MaxAttachedChar][]CharState
-	// explodsState      [MaxSimul*2 + MaxAttachedChar][]ExplodState
-	// explDrawlist      [MaxSimul*2 + MaxAttachedChar][]int
-	// topexplDrawlist   [MaxSimul*2 + MaxAttachedChar][]int
-	// underexplDrawlist [MaxSimul*2 + MaxAttachedChar][]int
-	// aiInput           [MaxSimul*2 + MaxAttachedChar]AiInput
-
-	// charMap map[int32]CharState
-	// projMap map[int32]ProjectileState
-
-	// com                [MaxSimul*2 + MaxAttachedChar]float32
-	// cam                Camera
-	// allPalFX           PalFX
-	// bgPalFX            PalFX
-	// pause              int32
-	// pausetime          int32
-	// pausebg            bool
-	// pauseendcmdbuftime int32
-	// pauseplayer        int
-	// super              int32
-	// supertime          int32
-	// superpausebg       bool
-	// superendcmdbuftime int32
-	// superplayer        int
-	// superdarken        bool
-	// superanim          AnimationState
-	// superanimRef       *Animation
-	// superpmap          PalFX
-	// superpos           [2]float32
-	// superfacing        float32
-	// superp2defmul      float32
-
-	// envShake            EnvShake
-	// specialFlag         GlobalSpecialFlag
-	// envcol              [3]int32
-	// envcol_time         int32
-	// bcStack, bcVarStack BytecodeStack
-	// bcVar               []BytecodeValue
-	// stageState          StageState
 
 }
 
@@ -947,18 +953,18 @@ func (gs *GameState) loadProjectileData() {
 		}
 	} else {
 		fmt.Println("Projectiles did not persist")
-		for i := range sys.projs {
-			fmt.Printf("len of projs %d len of projsState %d\n", len(sys.projs[i]), len(gs.projectileState[i]))
-			if len(sys.projs[i]) < len(gs.projectileState[i]) {
-				for len(sys.projs[i]) < len(gs.projectileState[i]) {
-					sys.chars[i][0].newProj()
-				}
-			} else if len(sys.projs[i]) > len(gs.projectileState[i]) {
-				for len(sys.projs[i]) > len(gs.projectileState[i]) {
-					sys.projs[i] = sys.projs[i][:len(sys.projs[i])-1]
-				}
-			}
-		}
+		// for i := range sys.projs {
+		// 	fmt.Printf("len of projs %d len of projsState %d\n", len(sys.projs[i]), len(gs.projectileState[i]))
+		// 	if len(sys.projs[i]) < len(gs.projectileState[i]) {
+		// 		for len(sys.projs[i]) < len(gs.projectileState[i]) {
+		// 			sys.chars[i][0].newProj()
+		// 		}
+		// 	} else if len(sys.projs[i]) > len(gs.projectileState[i]) {
+		// 		for len(sys.projs[i]) > len(gs.projectileState[i]) {
+		// 			sys.projs[i] = sys.projs[i][:len(sys.projs[i])-1]
+		// 		}
+		// 	}
+		// }
 		/*
 			for i := range sys.projs {
 				for j, _ := range sys.projs[i] {
@@ -970,8 +976,20 @@ func (gs *GameState) loadProjectileData() {
 				}
 			}*/
 
-		for i := range sys.projs {
-			for j := range sys.projs[i] {
+		// for i := range sys.projs {
+		// 	for j := range sys.projs[i] {
+		// 		sys.projs[i][j].loadProjectileState(gs.projectileState[i][j])
+		// 	}
+		// }
+		// for i := range sys.projs {
+		// 	for j := range sys.projs[i] {
+		// 		sys.projs[i][j].loadProjectileState(gs.projectileState[i][j])
+		// 	}
+		// }
+		for i := range gs.projectileState {
+			sys.projs[i] = make([]Projectile, len(gs.projectileState[i]))
+			for j := range gs.projectileState[i] {
+				sys.projs[i][j] = *gs.projectileState[i][j].ptr
 				sys.projs[i][j].loadProjectileState(gs.projectileState[i][j])
 			}
 		}

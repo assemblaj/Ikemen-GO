@@ -1414,6 +1414,7 @@ func (p *Projectile) loadProjectileState(ps ProjectileState) {
 
 func (p *Projectile) getProjectileState() ProjectileState {
 	return ProjectileState{
+		ptr:             p,
 		hitdef:          p.hitdef,
 		id:              p.id,
 		anim:            p.anim,
@@ -2109,9 +2110,10 @@ func (c *Char) loadCharState(cs CharState) {
 
 	// load children
 	for i := range cs.childrenState {
-		c := cs.childrenState[i].findChar()
-		if c != nil {
-			c.children[i] = c
+		c.children = make([]*Char, len(cs.childrenState))
+		ch := cs.childrenState[i].findChar()
+		if ch != nil {
+			c.children[i] = ch
 			c.children[i].loadCharState(cs.childrenState[i])
 		}
 	}
@@ -2140,9 +2142,11 @@ func (c *Char) loadCharState(cs CharState) {
 		}
 	}
 
+	c.anim = cs.animState.ptr
 	if c.anim != nil {
 		c.anim.loadAnimationState(cs.animState)
 	}
+
 	c.ss = cs.ss
 
 	if len(c.cmd) == len(cs.cmd) {
