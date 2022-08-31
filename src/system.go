@@ -2030,6 +2030,9 @@ func (s *System) fight() (reload bool) {
 			s.playReplayState = false
 		} else if s.loadStateFlag {
 			s.gameState.LoadState()
+			if s.replayState != nil && s.replayState.syncTest {
+				s.replayState.startState = s.gameState
+			}
 			s.saveReplayState = false
 			s.playReplayState = true
 		}

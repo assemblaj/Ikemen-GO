@@ -19,6 +19,9 @@ type ReplayState struct {
 	remIn      int
 	time       int32
 	stoppedcnt int32
+	startState GameState
+	endState   GameState
+	syncTest   bool
 }
 
 func (rs *ReplayState) RecordInput(cb *CommandBuffer, i int, facing int32) {
@@ -80,6 +83,13 @@ func (rs *ReplayState) PlayUpdate() bool {
 	if sys.oldNextAddTime > 0 &&
 		binary.Read(rs.state, binary.LittleEndian, rs.ib[:]) != nil {
 		sys.playReplayState = false
+		if rs.syncTest {
+			sys.gameState.SaveState()
+			rs.endState = sys.gameState
+			if !rs.endState.Equal(rs.startState) {
+				panic("SyncError.")
+			}
+		}
 		rs = nil
 	}
 	return !sys.gameEnd
@@ -87,7 +97,8 @@ func (rs *ReplayState) PlayUpdate() bool {
 
 func NewReplayState() ReplayState {
 	return ReplayState{
-		state: bytes.NewBuffer([]byte{}),
+		state:    bytes.NewBuffer([]byte{}),
+		syncTest: false,
 	}
 }
 
@@ -463,20 +474,20 @@ func NewGameState() GameState {
 	}
 }
 
-func (gs *GameState) Equal(other GameState) (equality bool, unequal string) {
+func (gs *GameState) Equal(other GameState) (equality bool) {
 
 	if gs.randseed != other.randseed {
-		return false, fmt.Sprintf("randseed: %d: %d", gs.randseed, other.randseed)
+		return false
 	}
 
 	if gs.time != other.time {
-		return false, fmt.Sprintf("time: %d: %d", gs.time, other.time)
+		return false
 	}
 
 	if gs.gameTime != other.gameTime {
-		return false, fmt.Sprintf("gameTime: %d: %d", gs.gameTime, other.gameTime)
+		return false
 	}
-	return true, ""
+	return true
 
 }
 
