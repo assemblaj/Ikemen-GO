@@ -1993,6 +1993,10 @@ func (cl *CommandList) clone() (result CommandList) {
 			result.Commands[i][j] = cl.Commands[i][j].clone()
 		}
 	}
+	result.Names = make(map[string]int)
+	for k, v := range cl.Names {
+		result.Names[k] = v
+	}
 	return
 }
 
