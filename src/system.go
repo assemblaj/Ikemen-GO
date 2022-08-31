@@ -619,7 +619,7 @@ func (s *System) await(fps int) bool {
 		//var width, height = glfw.GetCurrentContext().GetFramebufferSize()
 		//gl.Viewport(0, 0, int32(width), int32(height))
 		gl.Viewport(0, 0, int(s.scrrect[2]), int(s.scrrect[3]))
-		if s.netInput == nil {
+		if s.netInput == nil && s.replayState == nil {
 			gl.Clear(gl.COLOR_BUFFER_BIT)
 		}
 	}
