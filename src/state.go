@@ -91,6 +91,11 @@ func NewReplayState() ReplayState {
 	}
 }
 
+type LifebarState struct {
+	combo     [2]int32
+	fakecombo [2]int32
+}
+
 type CharState struct {
 	palFX          PalFX
 	childrenState  []CharState
@@ -448,6 +453,7 @@ type GameState struct {
 	lifeShare               [2]bool
 	keyConfig               []KeyConfig
 	joystickConfig          []KeyConfig
+	lifebar                 LifebarState
 }
 
 func NewGameState() GameState {
