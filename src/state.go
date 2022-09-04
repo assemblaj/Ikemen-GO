@@ -20,29 +20,24 @@ type ReplayState struct {
 	time       int32
 	stoppedcnt int32
 	startState GameState
-	endState   GameState
+	endState   []GameState
 	syncTest   bool
+	replayEnd  bool
 }
 
 func (rs *ReplayState) RecordInput(cb *CommandBuffer, i int, facing int32) {
-	fmt.Println("RecordInput.")
-
 	if i >= 0 && i < len(rs.buf) {
 		rs.buf[sys.inputRemap[i]].input(cb, facing)
 	}
 }
 
 func (rs *ReplayState) PlayInput(cb *CommandBuffer, i int, facing int32) {
-	fmt.Println("PlayInput.")
-
 	if i >= 0 && i < len(rs.ib) {
 		rs.ib[sys.inputRemap[i]].GetInput(cb, facing)
 	}
 }
 
 func (rs *ReplayState) PlayAnyButton() bool {
-	fmt.Println("PlayAnyButton.")
-
 	for _, b := range rs.ib {
 		if b&IB_anybutton != 0 {
 			return true
@@ -51,14 +46,10 @@ func (rs *ReplayState) PlayAnyButton() bool {
 	return false
 }
 func (rs *ReplayState) RecordUpdate() bool {
-	fmt.Println("RecordUpdate.")
-
 	if !sys.gameEnd {
-		fmt.Println("I'm here in RecordUpdateLoop.")
 		rs.buf[rs.locIn].localUpdate(0)
 		if rs.state != nil {
 			for _, nb := range rs.buf {
-				fmt.Println("I wrote to some state.")
 				binary.Write(rs.state, binary.LittleEndian, &nb.buf[rs.time&31])
 			}
 		}
@@ -68,8 +59,6 @@ func (rs *ReplayState) RecordUpdate() bool {
 }
 
 func (rs *ReplayState) RecordAnyButton() bool {
-	fmt.Println("RecordAnyButton.")
-
 	for _, nb := range rs.buf {
 		if nb.buf[nb.curT&31]&IB_anybutton != 0 {
 			return true
@@ -78,19 +67,40 @@ func (rs *ReplayState) RecordAnyButton() bool {
 	return false
 }
 
+func (rs *ReplayState) getLastFrame() (GameState, bool) {
+	for i := range rs.endState {
+		if rs.endState[i].gameTime == rs.startState.gameTime {
+			return rs.endState[i], true
+		}
+	}
+	return GameState{}, false
+}
 func (rs *ReplayState) PlayUpdate() bool {
-	fmt.Println("PlayUpdate.")
+	if rs.syncTest {
+		sys.gameState.SaveState()
+		rs.endState = append(rs.endState, sys.gameState)
+	}
+	now := sys.frameCounter
+	if now-int32(sys.gameState.rollback.rollbackTimer) == sys.gameState.rollback.rollbackWindow {
+		rs.replayEnd = true
+	}
+
 	if sys.oldNextAddTime > 0 &&
 		binary.Read(rs.state, binary.LittleEndian, rs.ib[:]) != nil {
 		sys.playReplayState = false
+		rs.replayEnd = true
 		if rs.syncTest {
-			sys.gameState.SaveState()
-			rs.endState = sys.gameState
-			if !rs.endState.Equal(rs.startState) {
-				panic("SyncError.")
+			frame, ok := rs.getLastFrame()
+			if !ok {
+				fmt.Println("State not found.")
+			} else {
+				if !rs.startState.Equal(frame) {
+					panic("SyncError.")
+				} else {
+					fmt.Println("Sync Test Passed.")
+				}
 			}
 		}
-		rs = nil
 	}
 	return !sys.gameEnd
 }
@@ -99,6 +109,7 @@ func NewReplayState() ReplayState {
 	return ReplayState{
 		state:    bytes.NewBuffer([]byte{}),
 		syncTest: false,
+		endState: make([]GameState, 32),
 	}
 }
 
@@ -339,7 +350,20 @@ type StageState struct {
 	stageTime   int32
 }
 
+type RollbackState struct {
+	rollbackTest   bool
+	rollbackTimer  int32
+	rollbackWindow int32
+	loaded         bool
+	saved          bool
+	justSaved      bool
+	playingReplay  bool
+	flag           bool
+}
 type GameState struct {
+	saved             bool
+	rollback          RollbackState
+	frame             int32
 	randseed          int32
 	time              int32
 	gameTime          int32
@@ -471,20 +495,28 @@ func NewGameState() GameState {
 	return GameState{
 		charMap: make(map[int32]CharState),
 		projMap: make(map[int32]ProjectileState),
+		rollback: RollbackState{
+			rollbackTest:   true,
+			rollbackWindow: 8,
+			//rollbackTimer:  int32(time.Now().UnixMilli()),
+		},
 	}
 }
 
 func (gs *GameState) Equal(other GameState) (equality bool) {
 
 	if gs.randseed != other.randseed {
+		fmt.Printf("Error on randseed: %d : %d ", gs.randseed, other.randseed)
 		return false
 	}
 
 	if gs.time != other.time {
+		fmt.Println("Error on time.")
 		return false
 	}
 
 	if gs.gameTime != other.gameTime {
+		fmt.Println("Error on gameTime.")
 		return false
 	}
 	return true
@@ -623,6 +655,8 @@ func (gs *GameState) LoadState() {
 }
 
 func (gs *GameState) SaveState() {
+	gs.saved = true
+	gs.frame = sys.frameCounter
 	gs.randseed = sys.randseed
 	gs.time = sys.time
 	gs.gameTime = sys.gameTime
@@ -860,14 +894,14 @@ func (gs *GameState) charsPersist() bool {
 
 func (gs *GameState) loadCharData() {
 	if gs.charsPersist() {
-		fmt.Println("Chars persist")
+		//fmt.Println("Chars persist")
 		for i := range sys.chars {
 			for j, _ := range sys.chars[i] {
 				sys.chars[i][j].loadCharState(gs.charState[i][j])
 			}
 		}
 	} else {
-		fmt.Println("Chars did not persist.")
+		//fmt.Println("Chars did not persist.")
 		/*
 			for i := range sys.chars {
 				for j, _ := range sys.chars[i] {
@@ -880,7 +914,7 @@ func (gs *GameState) loadCharData() {
 			}*/
 
 		for i := range sys.chars {
-			fmt.Printf("len of chars %d len of charState %d\n", len(sys.chars[i]), len(gs.charState[i]))
+			//fmt.Printf("len of chars %d len of charState %d\n", len(sys.chars[i]), len(gs.charState[i]))
 			if len(sys.chars[i]) < len(gs.charState[i]) {
 				for len(sys.chars[i]) < len(gs.charState[i]) {
 					sys.chars[i][0].newHelper()
@@ -972,14 +1006,14 @@ func (gs *GameState) projectliesPersist() bool {
 
 func (gs *GameState) loadProjectileData() {
 	if gs.projectliesPersist() {
-		fmt.Println("Projectiles Persist")
+		//fmt.Println("Projectiles Persist")
 		for i := range sys.projs {
 			for j := range sys.projs[i] {
 				sys.projs[i][j].loadProjectileState(gs.projectileState[i][j])
 			}
 		}
 	} else {
-		fmt.Println("Projectiles did not persist")
+		//fmt.Println("Projectiles did not persist")
 		// for i := range sys.projs {
 		// 	fmt.Printf("len of projs %d len of projsState %d\n", len(sys.projs[i]), len(gs.projectileState[i]))
 		// 	if len(sys.projs[i]) < len(gs.projectileState[i]) {

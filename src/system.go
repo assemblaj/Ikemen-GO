@@ -362,6 +362,7 @@ type System struct {
 	replayState     *ReplayState
 	saveReplayState bool
 	playReplayState bool
+	rollbackTest    bool
 }
 
 type Window struct {
@@ -2022,6 +2023,10 @@ func (s *System) fight() (reload bool) {
 			}
 		}
 
+		if sys.replayState != nil && sys.replayState.replayEnd {
+			sys.replayState = nil
+		}
+
 		if s.saveStateFlag {
 			s.gameState.SaveState()
 			replayState := NewReplayState()
@@ -2029,12 +2034,14 @@ func (s *System) fight() (reload bool) {
 			s.saveReplayState = true
 			s.playReplayState = false
 		} else if s.loadStateFlag {
-			s.gameState.LoadState()
-			if s.replayState != nil && s.replayState.syncTest {
-				s.replayState.startState = s.gameState
+			if s.gameState.saved {
+				s.gameState.LoadState()
+				s.saveReplayState = false
+				s.playReplayState = true
+				if s.replayState != nil {
+					s.replayState.replayEnd = false
+				}
 			}
-			s.saveReplayState = false
-			s.playReplayState = true
 		}
 		s.saveStateFlag = false
 		s.loadStateFlag = false
@@ -2152,6 +2159,7 @@ func (s *System) fight() (reload bool) {
 			}
 			continue
 		}
+
 		// Render frame
 		if !s.frameSkip {
 			x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
