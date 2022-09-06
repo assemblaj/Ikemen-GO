@@ -4,13 +4,23 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"strconv"
+	"time"
 )
 
 func init() {
 	sys.gameState.randseed = sys.randseed
+
+	for i := 0; i < 8; i++ {
+		gs := NewGameState()
+		sys.gameStatePool <- gs
+		rs := NewReplayState()
+		sys.replayPool <- &rs
+	}
 }
 
 type ReplayState struct {
+	id         int
 	state      *bytes.Buffer
 	ib         [MaxSimul*2 + MaxAttachedChar]InputBits
 	buf        [MaxSimul*2 + MaxAttachedChar]NetBuffer
@@ -26,12 +36,14 @@ type ReplayState struct {
 }
 
 func (rs *ReplayState) RecordInput(cb *CommandBuffer, i int, facing int32) {
+	//fmt.Println("record Input")
 	if i >= 0 && i < len(rs.buf) {
 		rs.buf[sys.inputRemap[i]].input(cb, facing)
 	}
 }
 
 func (rs *ReplayState) PlayInput(cb *CommandBuffer, i int, facing int32) {
+	//fmt.Println("play Input")
 	if i >= 0 && i < len(rs.ib) {
 		rs.ib[sys.inputRemap[i]].GetInput(cb, facing)
 	}
@@ -46,6 +58,7 @@ func (rs *ReplayState) PlayAnyButton() bool {
 	return false
 }
 func (rs *ReplayState) RecordUpdate() bool {
+	//fmt.Println("RecordUpdate")
 	if !sys.gameEnd {
 		rs.buf[rs.locIn].localUpdate(0)
 		if rs.state != nil {
@@ -59,6 +72,7 @@ func (rs *ReplayState) RecordUpdate() bool {
 }
 
 func (rs *ReplayState) RecordAnyButton() bool {
+	//fmt.Println("RecordAnyButton")
 	for _, nb := range rs.buf {
 		if nb.buf[nb.curT&31]&IB_anybutton != 0 {
 			return true
@@ -76,14 +90,15 @@ func (rs *ReplayState) getLastFrame() (GameState, bool) {
 	return GameState{}, false
 }
 func (rs *ReplayState) PlayUpdate() bool {
+	//fmt.Println("PlayUpdate")
 	if rs.syncTest {
 		sys.gameState.SaveState()
 		rs.endState = append(rs.endState, sys.gameState)
 	}
-	now := sys.frameCounter
-	if now-int32(sys.gameState.rollback.rollbackTimer) == sys.gameState.rollback.rollbackWindow {
-		rs.replayEnd = true
-	}
+	// now := sys.frameCounter
+	// if now-int32(sys.gameState.rollback.rollbackTimer) == sys.gameState.rollback.rollbackWindow {
+	// 	rs.replayEnd = true
+	// }
 
 	if sys.oldNextAddTime > 0 &&
 		binary.Read(rs.state, binary.LittleEndian, rs.ib[:]) != nil {
@@ -104,12 +119,14 @@ func (rs *ReplayState) PlayUpdate() bool {
 	}
 	return !sys.gameEnd
 }
+func (rs *ReplayState) getID() string {
+	return strconv.Itoa(rs.id)
+}
 
 func NewReplayState() ReplayState {
 	return ReplayState{
-		state:    bytes.NewBuffer([]byte{}),
-		syncTest: false,
-		endState: make([]GameState, 32),
+		state: bytes.NewBuffer([]byte{}),
+		id:    int(time.Now().UnixMilli()),
 	}
 }
 
@@ -360,7 +377,47 @@ type RollbackState struct {
 	playingReplay  bool
 	flag           bool
 }
+
+func (rs RollbackState) findLastFrame(cur int32) (*GameState, int) {
+	var toReturn *GameState = nil
+	var returnIdx int = -1
+
+	last := cur - rs.rollbackWindow + 1
+	fmt.Printf("Last %d \n", last)
+	for i := 0; i < len(sys.gameStates); i++ {
+		fmt.Printf("I'm here in findLastFrame %d\n", sys.gameStates[i].frame)
+		if sys.gameStates[i].frame == last {
+			fmt.Println("Sys.gameStates")
+			toReturn = &sys.gameStates[i]
+			returnIdx = i
+		} else {
+			if sys.gameStates[i].frame < last+rs.rollbackWindow {
+				fmt.Printf("sys.gameStates[i].frame % d< last+rs.rollbackWindow %d\n", sys.gameStates[i].frame,
+					last+rs.rollbackWindow)
+
+				// 	fmt.Println("Trapped in here? ")
+				select {
+				case sys.gameStatePool <- &sys.gameStates[i]:
+				default:
+					fmt.Println("GameState channel full")
+				}
+				select {
+				case sys.replayPool <- &sys.replays[i]:
+				default:
+					fmt.Println("Replay channel full")
+				}
+			}
+		}
+	}
+	return toReturn, returnIdx
+}
+
+func (gs *GameState) getID() string {
+	return strconv.Itoa(int(gs.id))
+}
+
 type GameState struct {
+	id                int
 	saved             bool
 	rollback          RollbackState
 	frame             int32
@@ -491,15 +548,11 @@ type GameState struct {
 	lifebar                 LifebarState
 }
 
-func NewGameState() GameState {
-	return GameState{
+func NewGameState() *GameState {
+	return &GameState{
 		charMap: make(map[int32]CharState),
 		projMap: make(map[int32]ProjectileState),
-		rollback: RollbackState{
-			rollbackTest:   true,
-			rollbackWindow: 8,
-			//rollbackTimer:  int32(time.Now().UnixMilli()),
-		},
+		id:      int(time.Now().UnixMilli()),
 	}
 }
 
@@ -660,13 +713,27 @@ func (gs *GameState) SaveState() {
 	gs.randseed = sys.randseed
 	gs.time = sys.time
 	gs.gameTime = sys.gameTime
+
+	//timeBefore := time.Now().UnixMilli()
 	gs.saveCharData()
+	//timeAfter := time.Now().UnixMilli()
+	//fmt.Printf("Time to save chars: %d\n", timeAfter-timeBefore)
+
+	//timeBefore = time.Now().UnixMilli()
 	gs.saveExplodData()
+	//timeAfter = time.Now().UnixMilli()
+	//fmt.Printf("Time to save explod data: %d\n", timeAfter-timeBefore)
+
+	//timeBefore = time.Now().UnixMilli()
 	gs.cam = sys.cam
 	gs.savePauseData()
 	gs.saveSuperData()
 	gs.savePalFX()
 	gs.saveProjectileData()
+	//timeAfter = time.Now().UnixMilli()
+	//fmt.Printf("Time to save blovk A: %d\n", timeAfter-timeBefore)
+
+	//timeBefore = time.Now().UnixMilli()
 	gs.com = sys.com
 	gs.envShake = sys.envShake
 	gs.envcol_time = sys.envcol_time
@@ -681,7 +748,10 @@ func (gs *GameState) SaveState() {
 	gs.autoguard = sys.autoguard
 	gs.workBe = make([]BytecodeExp, len(sys.workBe))
 	copy(gs.workBe, sys.workBe)
+	//timeAfter = time.Now().UnixMilli()
+	//fmt.Printf("Time to save block B: %d\n", timeAfter-timeBefore)
 
+	//timeBefore = time.Now().UnixMilli()
 	gs.finish = sys.finish
 	gs.winTeam = sys.winTeam
 	gs.winType = sys.winType
@@ -722,7 +792,10 @@ func (gs *GameState) SaveState() {
 	copy(gs.drawc2mtk, sys.drawc2mtk)
 	gs.drawwh = make(ClsnRect, len(sys.drawwh))
 	copy(gs.drawwh, sys.drawwh)
+	//timeAfter = time.Now().UnixMilli()
+	//fmt.Printf("Time to save block C: %d\n", timeAfter-timeBefore)
 
+	//timeBefore = time.Now().UnixMilli()
 	gs.accel = sys.accel
 	gs.clsnDraw = sys.clsnDraw
 	gs.statusDraw = sys.statusDraw
@@ -794,6 +867,8 @@ func (gs *GameState) SaveState() {
 
 	gs.joystickConfig = make([]KeyConfig, len(sys.joystickConfig))
 	copy(gs.joystickConfig, sys.joystickConfig)
+	//timeAfter = time.Now().UnixMilli()
+	//fmt.Printf("Time to save The rest: %d\n", timeAfter-timeBefore)
 }
 
 func (gs *GameState) savePalFX() {
@@ -805,8 +880,11 @@ func (gs *GameState) saveCharData() {
 	for i := range sys.chars {
 		gs.charState[i] = make([]CharState, len(sys.chars[i]))
 		for j, c := range sys.chars[i] {
+			//timeBefore := time.Now().UnixMilli()
 			gs.charState[i][j] = c.getCharState()
-			gs.charMap[gs.charState[i][j].id] = gs.charState[i][j]
+			//timeAfter := time.Now().UnixMilli()
+			//fmt.Printf("Time to save character %s: %d ms\n", c.name, timeAfter-timeBefore)
+			//gs.charMap[gs.charState[i][j].id] = gs.charState[i][j]
 		}
 	}
 
@@ -820,7 +898,7 @@ func (gs *GameState) saveProjectileData() {
 		gs.projectileState[i] = make([]ProjectileState, len(sys.projs[i]))
 		for j := 0; j < len(sys.projs[i]); j++ {
 			gs.projectileState[i][j] = sys.projs[i][j].getProjectileState()
-			gs.projMap[gs.projectileState[i][j].id] = gs.projectileState[i][j]
+			//gs.projMap[gs.projectileState[i][j].id] = gs.projectileState[i][j]
 		}
 	}
 }

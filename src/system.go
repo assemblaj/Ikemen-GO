@@ -90,7 +90,16 @@ var sys = System{
 	stereoEffects:        true,
 	panningRange:         30,
 	windowCentered:       true,
-	gameState:            NewGameState(),
+	gameState:            *NewGameState(),
+	currentState:         *NewGameState(),
+	gameStates:           make([]GameState, 8),
+	replays:              make([]ReplayState, 8),
+	gameStatePool:        make(chan *GameState, 8),
+	replayPool:           make(chan *ReplayState, 8),
+	rollbackState: RollbackState{
+		rollbackTest:   true,
+		rollbackWindow: 1,
+	},
 }
 
 type TeamMode int32
@@ -317,52 +326,59 @@ type System struct {
 	vRetrace   int
 	pngFilter  bool // Controls the GL_TEXTURE_MAG_FILTER on 32bit sprites
 
-	gameMode        string
-	frameCounter    int32
-	motifDir        string
-	captureNum      int
-	roundType       [2]RoundType
-	timerStart      int32
-	timerRounds     []int32
-	scoreStart      [2]float32
-	scoreRounds     [][2]float32
-	matchData       *lua.LTable
-	consecutiveWins [2]int32
-	teamLeader      [2]int
-	commonConst     string
-	commonLua       []string
-	commonStates    []string
-	gameSpeed       float32
-	maxPowerMode    bool
-	clsnText        []ClsnText
-	consoleText     []string
-	consoleRows     int
-	clipboardRows   int
-	luaLState       *lua.LState
-	statusLFunc     *lua.LFunction
-	listLFunc       []*lua.LFunction
-	introSkipped    bool
-	endMatch        bool
-	continueFlg     bool
-	dialogueFlg     bool
-	dialogueForce   int
-	dialogueBarsFlg bool
-	noSoundFlg      bool
-	postMatchFlg    bool
-	playBgmFlg      bool
-	brightnessOld   int32
-	clsnDarken      bool
-	maxBgmVolume    int
-	stereoEffects   bool
-	panningRange    float32
-	windowCentered  bool
-	gameState       GameState
-	loadStateFlag   bool
-	saveStateFlag   bool
-	replayState     *ReplayState
-	saveReplayState bool
-	playReplayState bool
-	rollbackTest    bool
+	gameMode           string
+	frameCounter       int32
+	motifDir           string
+	captureNum         int
+	roundType          [2]RoundType
+	timerStart         int32
+	timerRounds        []int32
+	scoreStart         [2]float32
+	scoreRounds        [][2]float32
+	matchData          *lua.LTable
+	consecutiveWins    [2]int32
+	teamLeader         [2]int
+	commonConst        string
+	commonLua          []string
+	commonStates       []string
+	gameSpeed          float32
+	maxPowerMode       bool
+	clsnText           []ClsnText
+	consoleText        []string
+	consoleRows        int
+	clipboardRows      int
+	luaLState          *lua.LState
+	statusLFunc        *lua.LFunction
+	listLFunc          []*lua.LFunction
+	introSkipped       bool
+	endMatch           bool
+	continueFlg        bool
+	dialogueFlg        bool
+	dialogueForce      int
+	dialogueBarsFlg    bool
+	noSoundFlg         bool
+	postMatchFlg       bool
+	playBgmFlg         bool
+	brightnessOld      int32
+	clsnDarken         bool
+	maxBgmVolume       int
+	stereoEffects      bool
+	panningRange       float32
+	windowCentered     bool
+	gameState          GameState
+	loadStateFlag      bool
+	saveStateFlag      bool
+	replayState        *ReplayState
+	saveReplayState    bool
+	playReplayState    bool
+	rollbackTest       bool
+	gameStates         []GameState
+	replays            []ReplayState
+	gameStatePool      chan *GameState
+	replayPool         chan *ReplayState
+	rollbackState      RollbackState
+	currentState       GameState
+	currentReplayState *ReplayState
 }
 
 type Window struct {
@@ -2027,13 +2043,59 @@ func (s *System) fight() (reload bool) {
 			sys.replayState = nil
 		}
 
+		if s.rollbackTest && s.roundState() != 3 && s.tickFrame() {
+			fmt.Println("Saving")
+			var gs *GameState
+			// var ok bool
+			if len(s.gameStatePool) == 0 {
+				gs = &s.gameState
+			} else {
+				gs = <-s.gameStatePool
+			}
+			s.gameState = *gs
+			s.gameState.SaveState()
+
+			var rs *ReplayState
+			if len(s.replayPool) == 0 {
+				r := NewReplayState()
+				rs = &r
+			} else {
+				rs = <-s.replayPool
+			}
+			s.replayState = rs
+			s.saveReplayState = true
+			s.playReplayState = false
+			s.gameStates[s.frameCounter%8] = s.gameState
+			s.replays[s.frameCounter%8] = *s.replayState
+			now := s.frameCounter
+			if now-int32(s.rollbackState.rollbackTimer) >= s.rollbackState.rollbackWindow {
+				gs, idx := s.rollbackState.findLastFrame(now)
+				if idx > 0 {
+					s.gameState = *gs
+					s.gameState.LoadState()
+
+					s.replayState = &s.replays[idx]
+					s.saveReplayState = false
+					s.playReplayState = true
+					if s.replayState != nil {
+						s.replayState.replayEnd = false
+					}
+				}
+				s.rollbackState.rollbackTimer = s.frameCounter
+			}
+		}
+
 		if s.saveStateFlag {
+			//	s.rollbackTest = true
+			//	s.rollbackState.rollbackTimer = s.frameCounter
 			s.gameState.SaveState()
 			replayState := NewReplayState()
 			s.replayState = &replayState
 			s.saveReplayState = true
 			s.playReplayState = false
 		} else if s.loadStateFlag {
+			//s.rollbackTest = false
+			//s.replayState = nil
 			if s.gameState.saved {
 				s.gameState.LoadState()
 				s.saveReplayState = false
@@ -2159,7 +2221,6 @@ func (s *System) fight() (reload bool) {
 			}
 			continue
 		}
-
 		// Render frame
 		if !s.frameSkip {
 			x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
@@ -2186,7 +2247,9 @@ func (s *System) fight() (reload bool) {
 				s.zoomPos = [2]float32{0, 0}
 				s.drawScale = s.cam.Scale
 			}
-			s.draw(dx, dy, dscl)
+			if !s.rollbackTest || !s.playReplayState {
+				s.draw(dx, dy, dscl)
+			}
 		}
 		//Lua code executed before drawing fade, clsns and debug
 		for _, str := range s.commonLua {
@@ -2220,6 +2283,24 @@ func (s *System) fight() (reload bool) {
 	}
 
 	return false
+}
+
+func (s *System) roundState() int32 {
+	switch {
+	case s.postMatchFlg:
+		return -1
+	case s.intro > s.lifebar.ro.ctrl_time+1:
+		return 0
+	case s.lifebar.ro.cur == 0:
+		return 1
+	case s.intro >= 0 || s.finish == FT_NotYet:
+		return 2
+	case s.intro < -(s.lifebar.ro.over_hittime +
+		s.lifebar.ro.over_waittime):
+		return 4
+	default:
+		return 3
+	}
 }
 
 type wincntMap map[string][]int32
