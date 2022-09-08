@@ -92,13 +92,13 @@ var sys = System{
 	windowCentered:       true,
 	gameState:            *NewGameState(),
 	currentState:         *NewGameState(),
-	gameStates:           make([]GameState, 8),
-	replays:              make([]ReplayState, 8),
+	gameStates:           [8]GameState{},
+	replays:              [8]ReplayState{},
 	gameStatePool:        make(chan *GameState, 8),
 	replayPool:           make(chan *ReplayState, 8),
 	rollbackState: RollbackState{
 		rollbackTest:   true,
-		rollbackWindow: 1,
+		rollbackWindow: 8,
 	},
 }
 
@@ -372,8 +372,8 @@ type System struct {
 	saveReplayState    bool
 	playReplayState    bool
 	rollbackTest       bool
-	gameStates         []GameState
-	replays            []ReplayState
+	gameStates         [8]GameState
+	replays            [8]ReplayState
 	gameStatePool      chan *GameState
 	replayPool         chan *ReplayState
 	rollbackState      RollbackState
@@ -1761,6 +1761,277 @@ func (s *System) drawDebug() {
 	}
 }
 
+func (s *System) runFrame(fin bool, copyVar func(pn int), reset func(),
+	oldTeamLeader [2]int, oldWins [2]int32, oldDraws int32, oldStageVars Stage, level [len(sys.chars)]int32,
+	lvmul float64) bool {
+	s.step = false
+	for _, v := range s.shortcutScripts {
+		if v.Activate {
+			if err := s.luaLState.DoString(v.Script); err != nil {
+				s.errLog.Println(err.Error())
+			}
+		}
+	}
+
+	// If next round
+	if s.roundOver() && !fin {
+		s.round++
+		for i := range s.roundsExisted {
+			s.roundsExisted[i]++
+		}
+		s.clearAllSound()
+		tbl_roundNo := s.luaLState.NewTable()
+		for _, p := range s.chars {
+			if len(p) > 0 && p[0].teamside != -1 {
+				tmp := s.luaLState.NewTable()
+				tmp.RawSetString("name", lua.LString(p[0].name))
+				tmp.RawSetString("id", lua.LNumber(p[0].id))
+				tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
+				tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
+				tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
+				tmp.RawSetString("life", lua.LNumber(p[0].life))
+				tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
+				tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
+				tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
+				tmp.RawSetString("palno", lua.LNumber(p[0].palno()))
+				tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
+				tmp.RawSetString("win", lua.LBool(p[0].win()))
+				tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
+				tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
+				tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
+				tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_S)))
+				tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_H)))
+				tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
+				tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
+				tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
+				tmp.RawSetString("firstAttack", lua.LBool(p[0].firstAttack))
+				tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
+				p[0].firstAttack = false
+			}
+		}
+		s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
+		s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
+		oldTeamLeader = s.teamLeader
+
+		if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
+			(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
+			/* Prepare for the next round */
+			for i, p := range s.chars {
+				if len(p) > 0 {
+					if s.tmode[i&1] != TM_Turns || !p[0].win() {
+						p[0].life = p[0].lifeMax
+					} else if p[0].life <= 0 {
+						p[0].life = 1
+					}
+					p[0].redLife = 0
+					copyVar(i)
+				}
+			}
+			oldWins, oldDraws = s.wins, s.draws
+			oldStageVars.copyStageVars(s.stage)
+			reset()
+		} else {
+			/* End match, or prepare for a new character in turns mode */
+			for i, tm := range s.tmode {
+				if s.chars[i][0].win() || !s.chars[i][0].lose() && tm != TM_Turns {
+					for j := i; j < len(s.chars); j += 2 {
+						if len(s.chars[j]) > 0 {
+							if s.chars[j][0].win() {
+								s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(lvmul,
+									float64(level[i]))*float64(s.chars[j][0].life))))
+							} else {
+								s.chars[j][0].life = Max(1, s.cgi[j].data.life)
+							}
+						}
+					}
+					//} else {
+					//	s.chars[i][0].life = 0
+				}
+			}
+			// If match isn't over, presumably this is turns mode,
+			// so break to restart fight for the next character
+			if !s.matchOver() {
+				return false
+			}
+
+			// Otherwise match is over
+			s.postMatchFlg = true
+			fin = true
+		}
+	}
+
+	// If frame is ready to tick and not paused
+	if s.tickFrame() && (s.super <= 0 || !s.superpausebg) &&
+		(s.pause <= 0 || !s.pausebg) {
+		// Update stage
+		s.stage.action()
+	}
+
+	// Update game state
+	s.action()
+
+	// F4 pressed to restart round
+	if s.roundResetFlg && !s.postMatchFlg {
+		reset()
+	}
+	// Shift+F4 pressed to restart match
+	if s.reloadFlg {
+		return true
+	}
+
+	if !s.addFrameTime(s.turbo) {
+		if !s.eventUpdate() {
+			return false
+		}
+		return false
+	}
+	// Break if finished
+	if fin && (!s.postMatchFlg || len(sys.commonLua) == 0) {
+		return false
+	}
+
+	// Update system; break if update returns false (game ended)
+	//if !s.update() {
+	//	return false
+	//}
+
+	// If end match selected from menu/end of attract mode match/etc
+	if s.endMatch {
+		s.esc = true
+		return false
+	} else if s.esc {
+		s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
+		return false
+	}
+	return true
+}
+
+func (s *System) render() {
+	if !s.frameSkip {
+		x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
+		dx, dy, dscl := x, y, scl
+		if s.enableZoomstate {
+			if !s.debugPaused() {
+				s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
+				s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
+				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
+			}
+			if s.zoomCameraBound {
+				dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
+				dx = s.cam.XBound(dscl, x+s.zoomPosXLag/scl)
+			} else {
+				dscl = s.drawScale / s.cam.BaseScale()
+				dx = x + s.zoomPosXLag/scl
+			}
+			dy = y + s.zoomPosYLag
+		} else {
+			s.zoomlag = 0
+			s.zoomPosXLag = 0
+			s.zoomPosYLag = 0
+			s.zoomScale = 1
+			s.zoomPos = [2]float32{0, 0}
+			s.drawScale = s.cam.Scale
+		}
+		s.draw(dx, dy, dscl)
+	}
+	//Lua code executed before drawing fade, clsns and debug
+	for _, str := range s.commonLua {
+		if err := s.luaLState.DoString(str); err != nil {
+			s.luaLState.RaiseError(err.Error())
+		}
+	}
+	// Render debug elements
+	if !s.frameSkip {
+		s.drawTop()
+		s.drawDebug()
+	}
+
+}
+
+func (s *System) initializeChar(pn int) {
+	var life, pow, gpow, spow, rlife [len(s.chars)]int32
+	var ivar [len(s.chars)][]int32
+	var fvar [len(s.chars)][]float32
+	var dialogue [len(s.chars)][]string
+	var mapArray [len(s.chars)]map[string]float32
+	var remapSpr [len(s.chars)]RemapPreset
+	life[pn] = s.chars[pn][0].life
+	pow[pn] = s.chars[pn][0].power
+	gpow[pn] = s.chars[pn][0].guardPoints
+	spow[pn] = s.chars[pn][0].dizzyPoints
+	rlife[pn] = s.chars[pn][0].redLife
+	if len(ivar[pn]) < len(s.chars[pn][0].ivar) {
+		ivar[pn] = make([]int32, len(s.chars[pn][0].ivar))
+	}
+	copy(ivar[pn], s.chars[pn][0].ivar[:])
+	if len(fvar[pn]) < len(s.chars[pn][0].fvar) {
+		fvar[pn] = make([]float32, len(s.chars[pn][0].fvar))
+	}
+	copy(fvar[pn], s.chars[pn][0].fvar[:])
+	copy(dialogue[pn], s.chars[pn][0].dialogue[:])
+	mapArray[pn] = make(map[string]float32)
+	for k, v := range s.chars[pn][0].mapArray {
+		mapArray[pn][k] = v
+	}
+	remapSpr[pn] = make(RemapPreset)
+	for k, v := range s.chars[pn][0].remapSpr {
+		remapSpr[pn][k] = v
+	}
+
+	// Reset hitScale.
+	s.chars[pn][0].defaultHitScale = newHitScaleArray()
+	s.chars[pn][0].activeHitScale = make(map[int32][3]*HitScale)
+	s.chars[pn][0].nextHitScale = make(map[int32][3]*HitScale)
+
+}
+func (s *System) resetFight() {
+	var life, pow, gpow, spow, rlife [len(s.chars)]int32
+	var ivar [len(s.chars)][]int32
+	var fvar [len(s.chars)][]float32
+	var dialogue [len(s.chars)][]string
+	var mapArray [len(s.chars)]map[string]float32
+	var remapSpr [len(s.chars)]RemapPreset
+	var oldStageVars Stage
+	oldStageVars.copyStageVars(s.stage)
+
+	oldWins, oldDraws := s.wins, s.draws
+	oldTeamLeader := s.teamLeader
+
+	s.wins, s.draws = oldWins, oldDraws
+	s.teamLeader = oldTeamLeader
+	for i, p := range s.chars {
+		if len(p) > 0 {
+			p[0].life = life[i]
+			p[0].power = pow[i]
+			p[0].guardPoints = gpow[i]
+			p[0].dizzyPoints = spow[i]
+			p[0].redLife = rlife[i]
+			copy(p[0].ivar[:], ivar[i])
+			copy(p[0].fvar[:], fvar[i])
+			copy(p[0].dialogue[:], dialogue[i])
+			p[0].mapArray = make(map[string]float32)
+			for k, v := range mapArray[i] {
+				p[0].mapArray[k] = v
+			}
+			p[0].remapSpr = make(RemapPreset)
+			for k, v := range remapSpr[i] {
+				p[0].remapSpr[k] = v
+			}
+
+			// Reset hitScale
+			p[0].defaultHitScale = newHitScaleArray()
+			p[0].activeHitScale = make(map[int32][3]*HitScale)
+			p[0].nextHitScale = make(map[int32][3]*HitScale)
+		}
+	}
+	s.stage.copyStageVars(&oldStageVars)
+	s.resetFrameTime()
+	s.nextRound()
+	s.roundResetFlg, s.introSkipped = false, false
+	s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
+	s.cam.Update(s.cam.startzoom, 0, 0)
+}
+
 // Starts and runs gameplay
 // Called to start each match, on hard reset with shift+F4, and
 // at the start of any round where a new character tags in for turns mode
@@ -1821,15 +2092,15 @@ func (s *System) fight() (reload bool) {
 	}
 
 	s.debugWC = sys.chars[0][0]
-	debugInput := func() {
-		select {
-		case cl := <-s.commandLine:
-			if err := s.luaLState.DoString(cl); err != nil {
-				s.errLog.Println(err.Error())
-			}
-		default:
-		}
-	}
+	// debugInput := func() {
+	// 	select {
+	// 	case cl := <-s.commandLine:
+	// 		if err := s.luaLState.DoString(cl); err != nil {
+	// 			s.errLog.Println(err.Error())
+	// 		}
+	// 	default:
+	// 	}
+	// }
 
 	// Synchronize with external inputs (netplay, replays, etc)
 	if err := s.synchronize(); err != nil {
@@ -2025,261 +2296,78 @@ func (s *System) fight() (reload bool) {
 		s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
 		s.cam.Update(s.cam.startzoom, 0, 0)
 	}
-	reset()
 
+	rs := NewReplayState()
+	s.replayState = &rs
+	// start := true
+	s.saveReplayState = true
+	s.playReplayState = false
+	running := true
+	frameCount := 0
+	lastVerified := 0
+	checkDistance := 1
+	start := time.Now().UnixMilli()
+	end := time.Now().UnixMilli()
+	reset()
 	// Loop until end of match
 	fin := false
 	for !s.endMatch {
-		s.step = false
-		for _, v := range s.shortcutScripts {
-			if v.Activate {
-				if err := s.luaLState.DoString(v.Script); err != nil {
-					s.errLog.Println(err.Error())
-				}
-			}
-		}
-
-		if sys.replayState != nil && sys.replayState.replayEnd {
-			sys.replayState = nil
-		}
-
-		if s.rollbackTest && s.roundState() != 3 && s.tickFrame() {
-			fmt.Println("Saving")
-			var gs *GameState
-			// var ok bool
-			if len(s.gameStatePool) == 0 {
-				gs = &s.gameState
-			} else {
-				gs = <-s.gameStatePool
-			}
-			s.gameState = *gs
-			s.gameState.SaveState()
-
-			var rs *ReplayState
-			if len(s.replayPool) == 0 {
-				r := NewReplayState()
-				rs = &r
-			} else {
-				rs = <-s.replayPool
-			}
-			s.replayState = rs
+		//if s.tickFrame() || s.tickNextFrame() {
+		if sys.roundState() != 3 && !sys.roundEnd() && s.tickFrame() {
+			// Read and save Inputs
+			sys.update()
 			s.saveReplayState = true
 			s.playReplayState = false
-			s.gameStates[s.frameCounter%8] = s.gameState
-			s.replays[s.frameCounter%8] = *s.replayState
-			now := s.frameCounter
-			if now-int32(s.rollbackState.rollbackTimer) >= s.rollbackState.rollbackWindow {
-				gs, idx := s.rollbackState.findLastFrame(now)
-				if idx > 0 {
-					s.gameState = *gs
-					s.gameState.LoadState()
 
-					s.replayState = &s.replays[idx]
+			if frameCount == 0 {
+				sys.gameState.SaveState()
+				s.gameStates[frameCount%checkDistance] = sys.gameState
+			}
+			// Advance Rollback Frame
+			frameCount++
+			start = time.Now().UnixMilli()
+			sys.gameState.SaveState()
+			end = time.Now().UnixMilli()
+			fmt.Printf("Save Time: %d\n", end-start)
+
+			s.gameStates[frameCount%checkDistance] = sys.gameState
+
+			if frameCount-lastVerified == checkDistance {
+				start = time.Now().UnixMilli()
+				s.gameStates[lastVerified%checkDistance].LoadState()
+				end = time.Now().UnixMilli()
+				fmt.Printf("Load Time %d\n", end-start)
+
+				start = time.Now().UnixMilli()
+				for i := 0; i < checkDistance; i++ {
+					// Advance Game Frame
 					s.saveReplayState = false
 					s.playReplayState = true
-					if s.replayState != nil {
-						s.replayState.replayEnd = false
-					}
-				}
-				s.rollbackState.rollbackTimer = s.frameCounter
-			}
-		}
+					running = sys.runFrame(fin,
+						copyVar, reset,
+						oldTeamLeader, oldWins,
+						oldDraws, oldStageVars,
+						level, lvmul)
 
-		if s.saveStateFlag {
-			//	s.rollbackTest = true
-			//	s.rollbackState.rollbackTimer = s.frameCounter
-			s.gameState.SaveState()
-			replayState := NewReplayState()
-			s.replayState = &replayState
+				}
+				end = time.Now().UnixMilli()
+				fmt.Printf("Emulation time: %d\n", end-start)
+				lastVerified = frameCount
+			}
+		} else {
+			sys.update()
 			s.saveReplayState = true
 			s.playReplayState = false
-		} else if s.loadStateFlag {
-			//s.rollbackTest = false
-			//s.replayState = nil
-			if s.gameState.saved {
-				s.gameState.LoadState()
-				s.saveReplayState = false
-				s.playReplayState = true
-				if s.replayState != nil {
-					s.replayState.replayEnd = false
-				}
-			}
+			running = sys.runFrame(fin,
+				copyVar, reset,
+				oldTeamLeader, oldWins,
+				oldDraws, oldStageVars,
+				level, lvmul)
 		}
-		s.saveStateFlag = false
-		s.loadStateFlag = false
-
-		// If next round
-		if s.roundOver() && !fin {
-			s.round++
-			for i := range s.roundsExisted {
-				s.roundsExisted[i]++
-			}
-			s.clearAllSound()
-			tbl_roundNo := s.luaLState.NewTable()
-			for _, p := range s.chars {
-				if len(p) > 0 && p[0].teamside != -1 {
-					tmp := s.luaLState.NewTable()
-					tmp.RawSetString("name", lua.LString(p[0].name))
-					tmp.RawSetString("id", lua.LNumber(p[0].id))
-					tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
-					tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
-					tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
-					tmp.RawSetString("life", lua.LNumber(p[0].life))
-					tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
-					tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
-					tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
-					tmp.RawSetString("palno", lua.LNumber(p[0].palno()))
-					tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
-					tmp.RawSetString("win", lua.LBool(p[0].win()))
-					tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
-					tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
-					tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
-					tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_S)))
-					tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_H)))
-					tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
-					tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
-					tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
-					tmp.RawSetString("firstAttack", lua.LBool(p[0].firstAttack))
-					tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
-					p[0].firstAttack = false
-				}
-			}
-			s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
-			s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
-			oldTeamLeader = s.teamLeader
-
-			if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
-				(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
-				/* Prepare for the next round */
-				for i, p := range s.chars {
-					if len(p) > 0 {
-						if s.tmode[i&1] != TM_Turns || !p[0].win() {
-							p[0].life = p[0].lifeMax
-						} else if p[0].life <= 0 {
-							p[0].life = 1
-						}
-						p[0].redLife = 0
-						copyVar(i)
-					}
-				}
-				oldWins, oldDraws = s.wins, s.draws
-				oldStageVars.copyStageVars(s.stage)
-				reset()
-			} else {
-				/* End match, or prepare for a new character in turns mode */
-				for i, tm := range s.tmode {
-					if s.chars[i][0].win() || !s.chars[i][0].lose() && tm != TM_Turns {
-						for j := i; j < len(s.chars); j += 2 {
-							if len(s.chars[j]) > 0 {
-								if s.chars[j][0].win() {
-									s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(lvmul,
-										float64(level[i]))*float64(s.chars[j][0].life))))
-								} else {
-									s.chars[j][0].life = Max(1, s.cgi[j].data.life)
-								}
-							}
-						}
-						//} else {
-						//	s.chars[i][0].life = 0
-					}
-				}
-				// If match isn't over, presumably this is turns mode,
-				// so break to restart fight for the next character
-				if !s.matchOver() {
-					break
-				}
-
-				// Otherwise match is over
-				s.postMatchFlg = true
-				fin = true
-			}
-		}
-
-		// If frame is ready to tick and not paused
-		if s.tickFrame() && (s.super <= 0 || !s.superpausebg) &&
-			(s.pause <= 0 || !s.pausebg) {
-			// Update stage
-			s.stage.action()
-		}
-
-		// Update game state
-		s.action()
-
-		// F4 pressed to restart round
-		if s.roundResetFlg && !s.postMatchFlg {
-			reset()
-		}
-		// Shift+F4 pressed to restart match
-		if s.reloadFlg {
-			return true
-		}
-
-		debugInput()
-		if !s.addFrameTime(s.turbo) {
-			if !s.eventUpdate() {
-				return false
-			}
-			continue
-		}
-		// Render frame
-		if !s.frameSkip {
-			x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
-			dx, dy, dscl := x, y, scl
-			if s.enableZoomstate {
-				if !s.debugPaused() {
-					s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
-					s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
-					s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
-				}
-				if s.zoomCameraBound {
-					dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
-					dx = s.cam.XBound(dscl, x+s.zoomPosXLag/scl)
-				} else {
-					dscl = s.drawScale / s.cam.BaseScale()
-					dx = x + s.zoomPosXLag/scl
-				}
-				dy = y + s.zoomPosYLag
-			} else {
-				s.zoomlag = 0
-				s.zoomPosXLag = 0
-				s.zoomPosYLag = 0
-				s.zoomScale = 1
-				s.zoomPos = [2]float32{0, 0}
-				s.drawScale = s.cam.Scale
-			}
-			if !s.rollbackTest || !s.playReplayState {
-				s.draw(dx, dy, dscl)
-			}
-		}
-		//Lua code executed before drawing fade, clsns and debug
-		for _, str := range s.commonLua {
-			if err := s.luaLState.DoString(str); err != nil {
-				s.luaLState.RaiseError(err.Error())
-			}
-		}
-		// Render debug elements
-		if !s.frameSkip {
-			s.drawTop()
-			s.drawDebug()
-		}
-
-		// Break if finished
-		if fin && (!s.postMatchFlg || len(sys.commonLua) == 0) {
+		if !running {
 			break
 		}
-
-		// Update system; break if update returns false (game ended)
-		if !s.update() {
-			break
-		}
-
-		// If end match selected from menu/end of attract mode match/etc
-		if s.endMatch {
-			s.esc = true
-		} else if s.esc {
-			s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
-		}
-
+		sys.render()
 	}
 
 	return false
