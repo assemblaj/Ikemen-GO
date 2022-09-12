@@ -2352,7 +2352,6 @@ func (s *System) fight() (reload bool) {
 	// Loop until end of match
 	fin := false
 	for !s.endMatch {
-		sys.update()
 		if sys.roundState() != 3 && !sys.roundEnd() && s.rbTestEveryFrame {
 			fmt.Println("In rb test every frame.")
 			// Read and save Inputs
@@ -2457,6 +2456,7 @@ func (s *System) fight() (reload bool) {
 		if !running {
 			break
 		}
+		sys.update()
 		sys.render()
 	}
 
