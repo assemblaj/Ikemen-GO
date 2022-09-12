@@ -1604,6 +1604,23 @@ func systemScriptInit(l *lua.LState) {
 		fmt.Println(strArg(l, 1))
 		return 0
 	})
+	luaRegister(l, "rbTestEveryFrame", func(*lua.LState) int {
+		if !sys.rbTestEveryNFrames {
+			sys.rbTestEveryFrame = true
+		}
+		return 0
+	})
+	luaRegister(l, "rbTestEveryNFrames", func(*lua.LState) int {
+		if !sys.rbTestEveryFrame {
+			sys.rbTestEveryNFrames = true
+		}
+		return 0
+	})
+	luaRegister(l, "rbTestStop", func(*lua.LState) int {
+		sys.rbTestEveryNFrames = false
+		sys.rbTestEveryFrame = false
+		return 0
+	})
 	luaRegister(l, "refresh", func(*lua.LState) int {
 		sys.tickSound()
 		if !sys.update() {

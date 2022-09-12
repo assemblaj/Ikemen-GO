@@ -8027,6 +8027,86 @@ func (sb *StateBytecode) run(c *Char) (changeState bool) {
 	return
 }
 
+type rbTestStop StateControllerBase
+
+const (
+	rbTestStop_ byte = iota
+	rbTestStop_redirectid
+)
+
+func (sc rbTestStop) Run(c *Char, _ []int32) bool {
+	//crun := c
+	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
+		switch id {
+		case rbTestStop_:
+			sys.rbTestEveryFrame = false
+			sys.rbTestEveryNFrames = false
+		case rbTestStop_redirectid:
+			//if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+			//	crun = rid
+			//} else {
+			//	return false
+			//}
+		}
+		return true
+	})
+	return false
+}
+
+type rbTestEveryFrame StateControllerBase
+
+const (
+	rbTestEveryFrame_ byte = iota
+	rbTestEveryFrame_redirectid
+)
+
+func (sc rbTestEveryFrame) Run(c *Char, _ []int32) bool {
+	//crun := c
+	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
+		switch id {
+		case rbTestEveryFrame_:
+			if !sys.rbTestEveryNFrames {
+				sys.rbTestEveryFrame = !sys.rbTestEveryFrame
+			}
+		case rbTestEveryFrame_redirectid:
+			//if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+			//	crun = rid
+			//} else {
+			//	return false
+			//}
+		}
+		return true
+	})
+	return false
+}
+
+type rbTestEveryNFrames StateControllerBase
+
+const (
+	rbTestEveryNFrames_ byte = iota
+	rbTestEveryNFrames_redirectid
+)
+
+func (sc rbTestEveryNFrames) Run(c *Char, _ []int32) bool {
+	//crun := c
+	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
+		switch id {
+		case rbTestEveryFrame_:
+			if !sys.rbTestEveryFrame {
+				sys.rbTestEveryNFrames = !sys.rbTestEveryNFrames
+			}
+		case rbTestEveryFrame_redirectid:
+			//if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+			//	crun = rid
+			//} else {
+			//	return false
+			//}
+		}
+		return true
+	})
+	return false
+}
+
 type loadState StateControllerBase
 
 const (

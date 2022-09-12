@@ -379,6 +379,8 @@ type System struct {
 	rollbackState      RollbackState
 	currentState       GameState
 	currentReplayState *ReplayState
+	rbTestEveryNFrames bool
+	rbTestEveryFrame   bool
 }
 
 type Window struct {
@@ -603,6 +605,46 @@ func (s *System) runMainThreadTask() {
 		}
 	}
 }
+func (s *System) updateCamera() {
+	if !s.frameSkip {
+		scl := s.cam.Scale / s.cam.BaseScale()
+		if s.enableZoomstate {
+			if !s.debugPaused() {
+				s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
+				s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
+				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
+			}
+		} else {
+			s.zoomlag = 0
+			s.zoomPosXLag = 0
+			s.zoomPosYLag = 0
+			s.zoomScale = 1
+			s.zoomPos = [2]float32{0, 0}
+			s.drawScale = s.cam.Scale
+		}
+	}
+}
+func (s *System) awaitWithoutDraw(fps int) {
+	s.runMainThreadTask()
+	now := time.Now()
+	diff := s.redrawWait.nextTime.Sub(now)
+	wait := time.Second / time.Duration(fps)
+	s.redrawWait.nextTime = s.redrawWait.nextTime.Add(wait)
+	switch {
+	case diff >= 0 && diff < wait+2*time.Millisecond:
+		time.Sleep(diff)
+		fallthrough
+	case now.Sub(s.redrawWait.lastDraw) > 250*time.Millisecond:
+		fallthrough
+	case diff >= -17*time.Millisecond:
+		s.redrawWait.lastDraw = now
+	default:
+		if diff < -150*time.Millisecond {
+			s.redrawWait.nextTime = now.Add(wait)
+		}
+	}
+}
+
 func (s *System) await(fps int) bool {
 	if !s.frameSkip {
 		// Render the finished frame
@@ -636,7 +678,7 @@ func (s *System) await(fps int) bool {
 		//var width, height = glfw.GetCurrentContext().GetFramebufferSize()
 		//gl.Viewport(0, 0, int32(width), int32(height))
 		gl.Viewport(0, 0, int(s.scrrect[2]), int(s.scrrect[3]))
-		if s.netInput == nil && s.replayState == nil {
+		if s.netInput == nil && (s.replayState == nil && s.playReplayState || s.saveReplayState) {
 			gl.Clear(gl.COLOR_BUFFER_BIT)
 		}
 	}
@@ -656,7 +698,7 @@ func (s *System) update() bool {
 		s.await(FPS)
 		return s.netInput.Update()
 	}
-	if s.replayState != nil {
+	if s.replayState != nil && s.playReplayState || s.saveReplayState {
 		s.await(FPS)
 		if s.saveReplayState {
 			return sys.replayState.RecordUpdate()
@@ -2300,22 +2342,79 @@ func (s *System) fight() (reload bool) {
 	rs := NewReplayState()
 	s.replayState = &rs
 	// start := true
-	s.saveReplayState = true
-	s.playReplayState = false
+	//s.saveReplayState = true
+	//s.playReplayState = false
 	running := true
 	frameCount := 0
 	lastVerified := 0
-	checkDistance := 1
-	start := time.Now().UnixMilli()
-	end := time.Now().UnixMilli()
+	checkDistance := 2
 	reset()
 	// Loop until end of match
 	fin := false
 	for !s.endMatch {
-		//if s.tickFrame() || s.tickNextFrame() {
-		if sys.roundState() != 3 && !sys.roundEnd() && s.tickFrame() {
+		sys.update()
+		if sys.roundState() != 3 && !sys.roundEnd() && s.rbTestEveryFrame {
+			fmt.Println("In rb test every frame.")
 			// Read and save Inputs
-			sys.update()
+			//sys.replayState.RecordUpdate()
+			s.saveReplayState = true
+			s.playReplayState = false
+
+			if frameCount == 0 {
+				sys.gameState.SaveState()
+				s.gameStates[frameCount%checkDistance] = sys.gameState
+			}
+
+			// Advance Rollback Frame
+			frameCount++
+			sys.gameState.SaveState()
+			s.gameStates[frameCount%checkDistance] = sys.gameState
+
+			if frameCount >= checkDistance {
+				//before := time.Now().UnixMilli()
+				//fmt.Printf("Loaded frame: %d\n", lastVerified%8)
+				tmp := s.frameSkip
+				s.frameSkip = true
+				s.gameStates[(frameCount-checkDistance)%checkDistance].LoadState()
+				for i := 0; i < checkDistance; i++ {
+					//fmt.Println("Running replay frame.")
+					// Play Saved Input
+					s.saveReplayState = false
+					s.playReplayState = true
+					sys.replayState.PlayUpdate()
+					// Advance Game Frame
+					sys.runFrame(fin,
+						copyVar, reset,
+						oldTeamLeader, oldWins,
+						oldDraws, oldStageVars,
+						level, lvmul)
+					sys.updateCamera()
+				}
+				//after := time.Now().UnixMilli()
+				//frames := (after - before) / (1000 / 60)
+				for i := 0; i < checkDistance; i++ {
+					sys.awaitWithoutDraw(FPS)
+				}
+
+				//fmt.Println("Advancing game frame.")
+				// Record new Input
+				s.saveReplayState = true
+				s.playReplayState = false
+				// Advance the game one frame
+				// sys.update()
+				sys.replayState.RecordUpdate()
+				running = sys.runFrame(fin,
+					copyVar, reset,
+					oldTeamLeader, oldWins,
+					oldDraws, oldStageVars,
+					level, lvmul)
+				sys.updateCamera()
+				// Set the last verified to the CheckDistance-th frame ago
+				s.frameSkip = tmp
+			}
+		} else if sys.roundState() != 3 && !sys.roundEnd() && s.tickFrame() && s.rbTestEveryNFrames {
+			fmt.Println("in rb test every n frames ")
+			// Read and save Inputs
 			s.saveReplayState = true
 			s.playReplayState = false
 
@@ -2325,20 +2424,12 @@ func (s *System) fight() (reload bool) {
 			}
 			// Advance Rollback Frame
 			frameCount++
-			start = time.Now().UnixMilli()
 			sys.gameState.SaveState()
-			end = time.Now().UnixMilli()
-			fmt.Printf("Save Time: %d\n", end-start)
 
 			s.gameStates[frameCount%checkDistance] = sys.gameState
 
 			if frameCount-lastVerified == checkDistance {
-				start = time.Now().UnixMilli()
 				s.gameStates[lastVerified%checkDistance].LoadState()
-				end = time.Now().UnixMilli()
-				fmt.Printf("Load Time %d\n", end-start)
-
-				start = time.Now().UnixMilli()
 				for i := 0; i < checkDistance; i++ {
 					// Advance Game Frame
 					s.saveReplayState = false
@@ -2350,13 +2441,12 @@ func (s *System) fight() (reload bool) {
 						level, lvmul)
 
 				}
-				end = time.Now().UnixMilli()
-				fmt.Printf("Emulation time: %d\n", end-start)
 				lastVerified = frameCount
 			}
 		} else {
-			sys.update()
-			s.saveReplayState = true
+			fmt.Println("Normal Game.")
+			//sys.update()
+			s.saveReplayState = false
 			s.playReplayState = false
 			running = sys.runFrame(fin,
 				copyVar, reset,

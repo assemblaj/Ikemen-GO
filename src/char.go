@@ -1938,10 +1938,10 @@ func (c *Char) getCharState() CharState {
 	targetsOfHitdef := make([]int32, len(c.targetsOfHitdef))
 	copy(targetsOfHitdef, c.targetsOfHitdef)
 
-	// commandList := make([]CommandList, len(c.cmd))
-	// for i, c := range c.cmd {
-	// 	commandList[i] = c.clone()
-	// }
+	commandList := make([]CommandList, len(c.cmd))
+	for i, c := range c.cmd {
+		commandList[i] = c.clone()
+	}
 	defaultHitScale := [3]*HitScale{}
 	for i := 0; i < len(defaultHitScale); i++ {
 		if defaultHitScale[i] != nil {
@@ -1972,10 +1972,10 @@ func (c *Char) getCharState() CharState {
 	}
 
 	return CharState{
-		childrenState:  c.getChildrenState(),
-		enemynearState: c.getEnemyNearState(),
-		animState:      c.anim.getAnimationState(),
-		//cmd:                   commandList,
+		childrenState:         c.getChildrenState(),
+		enemynearState:        c.getEnemyNearState(),
+		animState:             c.anim.getAnimationState(),
+		cmd:                   commandList,
 		ss:                    c.ss,
 		hitdef:                c.hitdef,
 		redLife:               c.redLife,
@@ -2148,13 +2148,13 @@ func (c *Char) loadCharState(cs CharState) {
 
 	c.ss = cs.ss
 
-	// if len(c.cmd) == len(cs.cmd) {
-	// 	for i := 0; i < len(c.cmd); i++ {
-	// 		c.cmd[i].loadCommandList(cs.cmd[i])
-	// 	}
-	// } else {
-	// 	c.cmd = cs.cmd
-	// }
+	if len(c.cmd) == len(cs.cmd) {
+		for i := 0; i < len(c.cmd); i++ {
+			c.cmd[i].loadCommandList(cs.cmd[i])
+		}
+	} else {
+		c.cmd = cs.cmd
+	}
 
 	c.hitdef = cs.hitdef
 	c.redLife = cs.redLife

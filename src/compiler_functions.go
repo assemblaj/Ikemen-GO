@@ -4692,3 +4692,39 @@ func (c *Compiler) loadState(is IniSection, sc *StateControllerBase, _ int8) (St
 	})
 	return *ret, err
 }
+
+func (c *Compiler) rbTestEveryFrame(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*rbTestEveryFrame)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			rbTestEveryFrame_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		sc.add(rbTestEveryFrame_, nil)
+		return nil
+	})
+	return *ret, err
+}
+
+func (c *Compiler) rbTestEveryNFrames(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*rbTestEveryNFrames)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			rbTestEveryNFrames_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		sc.add(rbTestEveryNFrames_, nil)
+		return nil
+	})
+	return *ret, err
+}
+
+func (c *Compiler) rbTestStop(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*rbTestStop)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			rbTestStop_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		sc.add(rbTestStop_, nil)
+		return nil
+	})
+	return *ret, err
+}

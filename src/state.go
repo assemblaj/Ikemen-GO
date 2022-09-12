@@ -58,7 +58,6 @@ func (rs *ReplayState) PlayAnyButton() bool {
 	return false
 }
 func (rs *ReplayState) RecordUpdate() bool {
-	//fmt.Println("RecordUpdate")
 	if !sys.gameEnd {
 		rs.buf[rs.locIn].localUpdate(0)
 		if rs.state != nil {
