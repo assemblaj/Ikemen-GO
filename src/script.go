@@ -645,7 +645,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "connected", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netInput.IsConnected()))
+		l.Push(lua.LBool(sys.netInput.IsConnected() || sys.rollbackNetwork.IsConnected()))
 		return 1
 	})
 	luaRegister(l, "dialogueReset", func(*lua.LState) int {
@@ -669,13 +669,18 @@ func systemScriptInit(l *lua.LState) {
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
 		sys.netInput = NewNetInput()
+		rs := NewRollbackSesesion()
+		sys.rollbackNetwork = &rs
+
 		if host := strArg(l, 1); host != "" {
+			sys.rollbackNetwork.host = strArg(l, 1)
 			sys.netInput.Connect(host, sys.listenPort)
 		} else {
 			if err := sys.netInput.Accept(sys.listenPort); err != nil {
 				l.RaiseError(err.Error())
 			}
 		}
+
 		return 0
 	})
 	luaRegister(l, "enterReplay", func(*lua.LState) int {
@@ -694,6 +699,10 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "exitNetPlay", func(*lua.LState) int {
+		if sys.rollbackNetwork != nil {
+			sys.rollbackNetwork.Close()
+			sys.rollbackNetwork = nil
+		}
 		if sys.netInput != nil {
 			sys.netInput.Close()
 			sys.netInput = nil
@@ -1651,15 +1660,15 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "replayRecord", func(*lua.LState) int {
-		if sys.netInput != nil {
-			sys.netInput.rep, _ = os.Create(strArg(l, 1))
+		if sys.rollbackNetwork != nil {
+			sys.rollbackNetwork.rep, _ = os.Create(strArg(l, 1))
 		}
 		return 0
 	})
 	luaRegister(l, "replayStop", func(*lua.LState) int {
-		if sys.netInput != nil && sys.netInput.rep != nil {
-			sys.netInput.rep.Close()
-			sys.netInput.rep = nil
+		if sys.rollbackNetwork != nil && sys.rollbackNetwork.rep != nil {
+			sys.rollbackNetwork.rep.Close()
+			sys.rollbackNetwork.rep = nil
 		}
 		return 0
 	})
@@ -2325,8 +2334,10 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "synchronize", func(*lua.LState) int {
-		if err := sys.synchronize(); err != nil {
-			l.RaiseError(err.Error())
+		if sys.rollbackNetwork != nil {
+			if err := sys.synchronize(); err != nil {
+				l.RaiseError(err.Error())
+			}
 		}
 		return 0
 	})
@@ -4044,7 +4055,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "network", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netInput != nil || sys.fileInput != nil))
+		l.Push(lua.LBool(sys.rollbackNetwork != nil || sys.fileInput != nil || sys.netInput != nil))
 		return 1
 	})
 	luaRegister(l, "paused", func(*lua.LState) int {

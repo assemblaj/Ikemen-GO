@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	ggpo "github.com/assemblaj/GGPO-Go/pkg"
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/speaker"
 	gl "github.com/fyne-io/gl-js"
@@ -381,6 +382,7 @@ type System struct {
 	currentReplayState *ReplayState
 	rbTestEveryNFrames bool
 	rbTestEveryFrame   bool
+	rollbackNetwork    *RollbackSession
 }
 
 type Window struct {
@@ -678,7 +680,7 @@ func (s *System) await(fps int) bool {
 		//var width, height = glfw.GetCurrentContext().GetFramebufferSize()
 		//gl.Viewport(0, 0, int32(width), int32(height))
 		gl.Viewport(0, 0, int(s.scrrect[2]), int(s.scrrect[3]))
-		if s.netInput == nil && (s.replayState == nil && s.playReplayState || s.saveReplayState) {
+		if s.netInput == nil && (s.replayState == nil && s.playReplayState || s.saveReplayState) && s.rollbackNetwork == nil {
 			gl.Clear(gl.COLOR_BUFFER_BIT)
 		}
 	}
@@ -1163,7 +1165,7 @@ func (s *System) posReset() {
 		}
 	}
 }
-func (s *System) action() {
+func (s *System) action(ib []InputBits) {
 	s.sprites = s.sprites[:0]
 	s.topSprites = s.topSprites[:0]
 	s.bottomSprites = s.bottomSprites[:0]
@@ -1217,7 +1219,7 @@ func (s *System) action() {
 		if s.superanim != nil {
 			s.superanim.Action()
 		}
-		s.charList.action(x, &cvmin, &cvmax,
+		s.charList.action(ib, x, &cvmin, &cvmax,
 			&highest, &lowest, &leftest, &rightest)
 		s.nomusic = s.sf(GSF_nomusic) && !sys.postMatchFlg
 	} else {
@@ -1803,147 +1805,244 @@ func (s *System) drawDebug() {
 	}
 }
 
+func readI32(b []byte) int32 {
+	if len(b) < 4 {
+		return 0
+	}
+	fmt.Printf("b[0] %d b[1] %d b[2] %d b[3] %d\n", b[0], b[1], b[2], b[3])
+	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24
+}
+
+func decodeInputs(bytes [][]byte) []InputBits {
+	ib := make([]InputBits, 0)
+	for i := 0; i < len(bytes); i++ {
+		ib = append(ib, InputBits(readI32(bytes[i])))
+	}
+	return ib
+}
+
+func writeI32(i32 int32) []byte {
+	b := []byte{byte(i32), byte(i32 >> 8), byte(i32 >> 16), byte(i32 >> 24)}
+	return b
+}
+
+func getInputs(player int) []byte {
+	for _, p := range sys.chars {
+		for _, ch := range p {
+			fmt.Printf("ch.name %s ch.playerNo %d player %d\n", ch.name, ch.playerNo, player)
+			if ch.playerNo != player-1 {
+				continue
+			}
+			ib := ch.inputFlag
+
+			var L, R, U, D, a, b, c, x, y, z, s, d, w, m bool
+			if ch.key < len(sys.inputRemap) {
+				ib := ch.inputFlag
+				in := sys.inputRemap[ch.key]
+				if in < len(sys.keyConfig) {
+					joy := sys.keyConfig[in].Joy
+					if joy == -1 {
+						L = sys.keyConfig[in].L() || ib&IB_PL != 0
+						R = sys.keyConfig[in].R() || ib&IB_PR != 0
+						U = sys.keyConfig[in].U() || ib&IB_PU != 0
+						D = sys.keyConfig[in].D() || ib&IB_PD != 0
+						a = sys.keyConfig[in].a() || ib&IB_A != 0
+						b = sys.keyConfig[in].b() || ib&IB_B != 0
+						c = sys.keyConfig[in].c() || ib&IB_C != 0
+						x = sys.keyConfig[in].x() || ib&IB_X != 0
+						y = sys.keyConfig[in].y() || ib&IB_Y != 0
+						z = sys.keyConfig[in].z() || ib&IB_Z != 0
+						s = sys.keyConfig[in].s() || ib&IB_S != 0
+						d = sys.keyConfig[in].d() || ib&IB_D != 0
+						w = sys.keyConfig[in].w() || ib&IB_W != 0
+						m = sys.keyConfig[in].m() || ib&IB_M != 0
+					}
+				}
+				var B, F bool
+				if ch.facing < 0 {
+					B, F = R, L
+				} else {
+					B, F = L, R
+				}
+				cb := CommandBuffer{}
+				cb.Input(B, D, F, U, a, b, c, x, y, z, s, d, w, m)
+			}
+			//ch.cmd[0].Input(ch.key, int32(ch.facing), sys.com[i], ch.inputFlag)
+			ib.SetInput(0)
+			return writeI32(int32(ib))
+
+		}
+	}
+	return []byte{}
+}
+
+func getInput() {
+
+}
 func (s *System) runFrame(fin bool, copyVar func(pn int), reset func(),
 	oldTeamLeader [2]int, oldWins [2]int32, oldDraws int32, oldStageVars Stage, level [len(sys.chars)]int32,
 	lvmul float64) bool {
-	s.step = false
-	for _, v := range s.shortcutScripts {
-		if v.Activate {
-			if err := s.luaLState.DoString(v.Script); err != nil {
-				s.errLog.Println(err.Error())
-			}
-		}
-	}
 
-	// If next round
-	if s.roundOver() && !fin {
-		s.round++
-		for i := range s.roundsExisted {
-			s.roundsExisted[i]++
-		}
-		s.clearAllSound()
-		tbl_roundNo := s.luaLState.NewTable()
-		for _, p := range s.chars {
-			if len(p) > 0 && p[0].teamside != -1 {
-				tmp := s.luaLState.NewTable()
-				tmp.RawSetString("name", lua.LString(p[0].name))
-				tmp.RawSetString("id", lua.LNumber(p[0].id))
-				tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
-				tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
-				tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
-				tmp.RawSetString("life", lua.LNumber(p[0].life))
-				tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
-				tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
-				tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
-				tmp.RawSetString("palno", lua.LNumber(p[0].palno()))
-				tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
-				tmp.RawSetString("win", lua.LBool(p[0].win()))
-				tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
-				tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
-				tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
-				tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_S)))
-				tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_H)))
-				tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
-				tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
-				tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
-				tmp.RawSetString("firstAttack", lua.LBool(p[0].firstAttack))
-				tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
-				p[0].firstAttack = false
-			}
-		}
-		s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
-		s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
-		oldTeamLeader = s.teamLeader
+	buffer := getInputs(sys.rollbackNetwork.playerNo)
+	result := s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(sys.rollbackNetwork.playerNo), buffer, len(buffer))
+	//buffer = getInputs(2)
+	//result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(2), buffer, len(buffer))
+	fmt.Println(buffer)
+	if result == nil {
 
-		if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
-			(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
-			/* Prepare for the next round */
-			for i, p := range s.chars {
-				if len(p) > 0 {
-					if s.tmode[i&1] != TM_Turns || !p[0].win() {
-						p[0].life = p[0].lifeMax
-					} else if p[0].life <= 0 {
-						p[0].life = 1
+		var values [][]byte
+		disconnectFlags := 0
+		values, result = s.rollbackNetwork.backend.SyncInput(&disconnectFlags)
+		fmt.Printf("values %v\n", values)
+		inputs := decodeInputs(values)
+		fmt.Println(inputs)
+		if result == nil {
+			s.step = false
+			for _, v := range s.shortcutScripts {
+				if v.Activate {
+					if err := s.luaLState.DoString(v.Script); err != nil {
+						s.errLog.Println(err.Error())
 					}
-					p[0].redLife = 0
-					copyVar(i)
 				}
 			}
-			oldWins, oldDraws = s.wins, s.draws
-			oldStageVars.copyStageVars(s.stage)
-			reset()
-		} else {
-			/* End match, or prepare for a new character in turns mode */
-			for i, tm := range s.tmode {
-				if s.chars[i][0].win() || !s.chars[i][0].lose() && tm != TM_Turns {
-					for j := i; j < len(s.chars); j += 2 {
-						if len(s.chars[j]) > 0 {
-							if s.chars[j][0].win() {
-								s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(lvmul,
-									float64(level[i]))*float64(s.chars[j][0].life))))
-							} else {
-								s.chars[j][0].life = Max(1, s.cgi[j].data.life)
+
+			// If next round
+			if s.roundOver() && !fin {
+				s.round++
+				for i := range s.roundsExisted {
+					s.roundsExisted[i]++
+				}
+				s.clearAllSound()
+				tbl_roundNo := s.luaLState.NewTable()
+				for _, p := range s.chars {
+					if len(p) > 0 && p[0].teamside != -1 {
+						tmp := s.luaLState.NewTable()
+						tmp.RawSetString("name", lua.LString(p[0].name))
+						tmp.RawSetString("id", lua.LNumber(p[0].id))
+						tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
+						tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
+						tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
+						tmp.RawSetString("life", lua.LNumber(p[0].life))
+						tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
+						tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
+						tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
+						tmp.RawSetString("palno", lua.LNumber(p[0].palno()))
+						tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
+						tmp.RawSetString("win", lua.LBool(p[0].win()))
+						tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
+						tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
+						tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
+						tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_S)))
+						tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_H)))
+						tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
+						tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
+						tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
+						tmp.RawSetString("firstAttack", lua.LBool(p[0].firstAttack))
+						tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
+						p[0].firstAttack = false
+					}
+				}
+				s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
+				s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
+				oldTeamLeader = s.teamLeader
+
+				if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
+					(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
+					/* Prepare for the next round */
+					for i, p := range s.chars {
+						if len(p) > 0 {
+							if s.tmode[i&1] != TM_Turns || !p[0].win() {
+								p[0].life = p[0].lifeMax
+							} else if p[0].life <= 0 {
+								p[0].life = 1
 							}
+							p[0].redLife = 0
+							copyVar(i)
 						}
 					}
-					//} else {
-					//	s.chars[i][0].life = 0
+					oldWins, oldDraws = s.wins, s.draws
+					oldStageVars.copyStageVars(s.stage)
+					reset()
+				} else {
+					/* End match, or prepare for a new character in turns mode */
+					for i, tm := range s.tmode {
+						if s.chars[i][0].win() || !s.chars[i][0].lose() && tm != TM_Turns {
+							for j := i; j < len(s.chars); j += 2 {
+								if len(s.chars[j]) > 0 {
+									if s.chars[j][0].win() {
+										s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(lvmul,
+											float64(level[i]))*float64(s.chars[j][0].life))))
+									} else {
+										s.chars[j][0].life = Max(1, s.cgi[j].data.life)
+									}
+								}
+							}
+							//} else {
+							//	s.chars[i][0].life = 0
+						}
+					}
+					// If match isn't over, presumably this is turns mode,
+					// so break to restart fight for the next character
+					if !s.matchOver() {
+						return false
+					}
+
+					// Otherwise match is over
+					s.postMatchFlg = true
+					fin = true
 				}
 			}
-			// If match isn't over, presumably this is turns mode,
-			// so break to restart fight for the next character
-			if !s.matchOver() {
+
+			// If frame is ready to tick and not paused
+			if s.tickFrame() && (s.super <= 0 || !s.superpausebg) &&
+				(s.pause <= 0 || !s.pausebg) {
+				// Update stage
+				s.stage.action()
+			}
+
+			// Update game state
+			s.action(inputs)
+
+			// F4 pressed to restart round
+			if s.roundResetFlg && !s.postMatchFlg {
+				reset()
+			}
+			// Shift+F4 pressed to restart match
+			if s.reloadFlg {
+				return true
+			}
+
+			if !s.addFrameTime(s.turbo) {
+				if !s.eventUpdate() {
+					return false
+				}
+				return false
+			}
+			// Break if finished
+			if fin && (!s.postMatchFlg || len(sys.commonLua) == 0) {
 				return false
 			}
 
-			// Otherwise match is over
-			s.postMatchFlg = true
-			fin = true
+			// Update system; break if update returns false (game ended)
+			//if !s.update() {
+			//	return false
+			//}
+
+			// If end match selected from menu/end of attract mode match/etc
+			if s.endMatch {
+				s.esc = true
+				return false
+			} else if s.esc {
+				s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
+				return false
+			}
+
+			err := s.rollbackNetwork.backend.AdvanceFrame()
+			if err != nil {
+				panic(err)
+			}
+
 		}
-	}
-
-	// If frame is ready to tick and not paused
-	if s.tickFrame() && (s.super <= 0 || !s.superpausebg) &&
-		(s.pause <= 0 || !s.pausebg) {
-		// Update stage
-		s.stage.action()
-	}
-
-	// Update game state
-	s.action()
-
-	// F4 pressed to restart round
-	if s.roundResetFlg && !s.postMatchFlg {
-		reset()
-	}
-	// Shift+F4 pressed to restart match
-	if s.reloadFlg {
-		return true
-	}
-
-	if !s.addFrameTime(s.turbo) {
-		if !s.eventUpdate() {
-			return false
-		}
-		return false
-	}
-	// Break if finished
-	if fin && (!s.postMatchFlg || len(sys.commonLua) == 0) {
-		return false
-	}
-
-	// Update system; break if update returns false (game ended)
-	//if !s.update() {
-	//	return false
-	//}
-
-	// If end match selected from menu/end of attract mode match/etc
-	if s.endMatch {
-		s.esc = true
-		return false
-	} else if s.esc {
-		s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
-		return false
 	}
 	return true
 }
@@ -2339,120 +2438,39 @@ func (s *System) fight() (reload bool) {
 		s.cam.Update(s.cam.startzoom, 0, 0)
 	}
 
-	rs := NewReplayState()
-	s.replayState = &rs
-	// start := true
-	//s.saveReplayState = true
-	//s.playReplayState = false
-	running := true
-	frameCount := 0
-	lastVerified := 0
-	checkDistance := 2
+	var running bool
+	if sys.rollbackNetwork != nil {
+		if sys.rollbackNetwork.host != "" {
+			GameInitP1(2, 7550, 7600, sys.rollbackNetwork.host)
+			sys.rollbackNetwork.playerNo = 1
+		} else {
+			GameInitP2(2, 7600, 7550, "127.0.0.1")
+			sys.rollbackNetwork.playerNo = 2
+		}
+		for !sys.rollbackNetwork.IsConnected() {
+			sys.rollbackNetwork.backend.Idle(0)
+		}
+		sys.netInput.Close()
+		sys.netInput = nil
+	}
+
 	reset()
 	// Loop until end of match
 	fin := false
 	for !s.endMatch {
-		if sys.roundState() != 3 && !sys.roundEnd() && s.rbTestEveryFrame {
-			fmt.Println("In rb test every frame.")
-			// Read and save Inputs
-			//sys.replayState.RecordUpdate()
-			s.saveReplayState = true
-			s.playReplayState = false
-
-			if frameCount == 0 {
-				sys.gameState.SaveState()
-				s.gameStates[frameCount%checkDistance] = sys.gameState
-			}
-
-			// Advance Rollback Frame
-			frameCount++
-			sys.gameState.SaveState()
-			s.gameStates[frameCount%checkDistance] = sys.gameState
-
-			if frameCount >= checkDistance {
-				//before := time.Now().UnixMilli()
-				//fmt.Printf("Loaded frame: %d\n", lastVerified%8)
-				tmp := s.frameSkip
-				s.frameSkip = true
-				s.gameStates[(frameCount-checkDistance)%checkDistance].LoadState()
-				for i := 0; i < checkDistance; i++ {
-					//fmt.Println("Running replay frame.")
-					// Play Saved Input
-					s.saveReplayState = false
-					s.playReplayState = true
-					sys.replayState.PlayUpdate()
-					// Advance Game Frame
-					sys.runFrame(fin,
-						copyVar, reset,
-						oldTeamLeader, oldWins,
-						oldDraws, oldStageVars,
-						level, lvmul)
-					sys.updateCamera()
-				}
-				//after := time.Now().UnixMilli()
-				//frames := (after - before) / (1000 / 60)
-				for i := 0; i < checkDistance; i++ {
-					sys.awaitWithoutDraw(FPS)
-				}
-
-				//fmt.Println("Advancing game frame.")
-				// Record new Input
-				s.saveReplayState = true
-				s.playReplayState = false
-				// Advance the game one frame
-				// sys.update()
-				sys.replayState.RecordUpdate()
-				running = sys.runFrame(fin,
-					copyVar, reset,
-					oldTeamLeader, oldWins,
-					oldDraws, oldStageVars,
-					level, lvmul)
-				sys.updateCamera()
-				// Set the last verified to the CheckDistance-th frame ago
-				s.frameSkip = tmp
-			}
-		} else if sys.roundState() != 3 && !sys.roundEnd() && s.tickFrame() && s.rbTestEveryNFrames {
-			fmt.Println("in rb test every n frames ")
-			// Read and save Inputs
-			s.saveReplayState = true
-			s.playReplayState = false
-
-			if frameCount == 0 {
-				sys.gameState.SaveState()
-				s.gameStates[frameCount%checkDistance] = sys.gameState
-			}
-			// Advance Rollback Frame
-			frameCount++
-			sys.gameState.SaveState()
-
-			s.gameStates[frameCount%checkDistance] = sys.gameState
-
-			if frameCount-lastVerified == checkDistance {
-				s.gameStates[lastVerified%checkDistance].LoadState()
-				for i := 0; i < checkDistance; i++ {
-					// Advance Game Frame
-					s.saveReplayState = false
-					s.playReplayState = true
-					running = sys.runFrame(fin,
-						copyVar, reset,
-						oldTeamLeader, oldWins,
-						oldDraws, oldStageVars,
-						level, lvmul)
-
-				}
-				lastVerified = frameCount
-			}
-		} else {
-			fmt.Println("Normal Game.")
-			//sys.update()
-			s.saveReplayState = false
-			s.playReplayState = false
-			running = sys.runFrame(fin,
-				copyVar, reset,
-				oldTeamLeader, oldWins,
-				oldDraws, oldStageVars,
-				level, lvmul)
+		s.rollbackNetwork.now = time.Now().UnixMilli()
+		err := s.rollbackNetwork.backend.Idle(
+			int(math.Max(0, float64(s.rollbackNetwork.next-s.rollbackNetwork.now-1))))
+		if err != nil {
+			panic(err)
 		}
+		running = sys.runFrame(fin,
+			copyVar, reset,
+			oldTeamLeader, oldWins,
+			oldDraws, oldStageVars,
+			level, lvmul)
+		s.rollbackNetwork.next = s.rollbackNetwork.now + 1000/60
+
 		if !running {
 			break
 		}

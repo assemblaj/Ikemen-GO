@@ -6622,9 +6622,38 @@ func (cl *CharList) delete(dc *Char) {
 		}
 	}
 }
-func (cl *CharList) action(x float32, cvmin, cvmax,
+func (cl *CharList) action(ib []InputBits, x float32, cvmin, cvmax,
 	highest, lowest, leftest, rightest *float32) {
-	sys.commandUpdate()
+	for i, p := range sys.chars {
+		if i < len(ib) {
+			fmt.Println(ib[i])
+		} else {
+			continue
+		}
+		if len(p) > 0 {
+			r := p[0]
+			if (r.ctrlOver() && !r.sf(CSF_postroundinput)) || r.sf(CSF_noinput) ||
+				(r.aiLevel() > 0 && !r.alive()) {
+				for j := range r.cmd {
+					r.cmd[j].BufReset()
+				}
+				continue
+			}
+			for _, c := range p {
+				if c.helperIndex == 0 ||
+					c.helperIndex > 0 && &c.cmd[0] != &r.cmd[0] {
+					c.cmd[0].Buffer.InputBits(ib[i], int32(c.facing))
+					hp := c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0
+					buftime := Btoi(hp && c.gi().ver[0] != 1)
+					for j := range c.cmd {
+						c.cmd[j].Step(int32(c.facing), c.key < 0, hp, buftime+Btoi(hp))
+					}
+				}
+			}
+		}
+	}
+
+	///sys.commandUpdate()
 	// Prepare characters before performing their actions
 	for i := 0; i < len(cl.runOrder); i++ {
 		cl.runOrder[i].actionPrepare()
