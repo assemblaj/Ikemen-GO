@@ -1970,19 +1970,23 @@ func (c *Char) getCharState() CharState {
 		}
 		activeHitScale[i] = hitScale
 	}
+	var animState AnimationState
+	if c.anim != nil {
+		c.anim.getAnimationState()
+	}
 
 	return CharState{
-		childrenState:         c.getChildrenState(),
-		enemynearState:        c.getEnemyNearState(),
-		animState:             c.anim.getAnimationState(),
+		ChildrenState:         c.getChildrenState(),
+		EnemynearState:        c.getEnemyNearState(),
+		animState:             animState,
 		cmd:                   commandList,
 		ss:                    c.ss,
 		hitdef:                c.hitdef,
-		redLife:               c.redLife,
-		juggle:                c.juggle,
-		life:                  c.life,
-		name:                  c.name,
-		key:                   c.key,
+		RedLife:               c.redLife,
+		Juggle:                c.juggle,
+		Life:                  c.life,
+		Name:                  c.name,
+		Key:                   c.key,
 		id:                    c.id,
 		helperId:              c.helperId,
 		helperIndex:           c.helperIndex,
@@ -1999,18 +2003,18 @@ func (c *Char) getCharState() CharState {
 		guardPoints:           c.guardPoints,
 		guardPointsMax:        c.guardPointsMax,
 		fallTime:              c.fallTime,
-		localcoord:            c.localcoord,
-		localscl:              c.localscl,
+		Localcoord:            c.localcoord,
+		Localscl:              c.localscl,
 		clsnScale:             c.clsnScale,
 		hoIdx:                 c.hoIdx,
 		mctime:                c.mctime,
 		targets:               targets,
 		targetsOfHitdef:       targetsOfHitdef,
-		pos:                   c.pos,
-		drawPos:               c.drawPos,
-		oldPos:                c.oldPos,
-		vel:                   c.vel,
-		facing:                c.facing,
+		Pos:                   c.pos,
+		DrawPos:               c.drawPos,
+		OldPos:                c.oldPos,
+		Vel:                   c.vel,
+		Facing:                c.facing,
 		p1facing:              c.p1facing,
 		cpucmd:                c.cpucmd,
 		attackDist:            c.attackDist,
@@ -2053,7 +2057,7 @@ func (c *Char) getCharState() CharState {
 		defaultHitScale:       defaultHitScale,
 		nextHitScale:          nextHitScale,
 		activeHitScale:        activeHitScale,
-		CharSystemVar: CharSystemVar{
+		csv: CharSystemVar{
 			airJumpCount:     c.airJumpCount,
 			hitCount:         c.hitCount,
 			uniqHitCount:     c.uniqHitCount,
@@ -2108,41 +2112,42 @@ func (c *Char) enemynearEqual(cs [2][]CharState) bool {
 func (c *Char) loadCharState(cs CharState) {
 
 	// load children
-	for i := range cs.childrenState {
-		c.children = make([]*Char, len(cs.childrenState))
-		ch := cs.childrenState[i].findChar()
+	for i := range cs.ChildrenState {
+		c.children = make([]*Char, len(cs.ChildrenState))
+		ch := cs.ChildrenState[i].findChar()
 		if ch != nil {
 			c.children[i] = ch
-			c.children[i].loadCharState(cs.childrenState[i])
+			c.children[i].loadCharState(cs.ChildrenState[i])
 		}
 	}
 
-	if c.enemynearEqual(cs.enemynearState) {
+	if c.enemynearEqual(cs.EnemynearState) {
 		// load enemeynear
 		for i := 0; i < len(c.enemynear); i++ {
 			for j := 0; j < len(c.enemynear[i]); j++ {
 				if c.enemynear[i][j] != nil {
-					c.enemynear[i][j].loadCharState(cs.enemynearState[i][j])
+					c.enemynear[i][j].loadCharState(cs.EnemynearState[i][j])
 				}
 			}
 		}
 	} else {
-		for i := 0; i < len(cs.enemynearState); i++ {
-			c.enemynear[i] = make([]*Char, len(cs.enemynearState[i]))
-			for j := 0; j < len(cs.enemynearState[i]); j++ {
-				ch := cs.enemynearState[i][j].findChar()
+		for i := 0; i < len(cs.EnemynearState); i++ {
+			c.enemynear[i] = make([]*Char, len(cs.EnemynearState[i]))
+			for j := 0; j < len(cs.EnemynearState[i]); j++ {
+				ch := cs.EnemynearState[i][j].findChar()
 				if ch == nil {
 					c.enemynear[i][j] = &Char{}
 				} else {
 					c.enemynear[i][j] = ch
 				}
-				c.enemynear[i][j].loadCharState(cs.enemynearState[i][j])
+				c.enemynear[i][j].loadCharState(cs.EnemynearState[i][j])
 			}
 		}
 	}
 
-	c.anim = cs.animState.ptr
-	if c.anim != nil {
+	// prior state had an animation
+	if c.anim == nil && cs.animState.ptr != nil {
+		c.anim = cs.animState.ptr
 		c.anim.loadAnimationState(cs.animState)
 	}
 
@@ -2157,11 +2162,11 @@ func (c *Char) loadCharState(cs CharState) {
 	}
 
 	c.hitdef = cs.hitdef
-	c.redLife = cs.redLife
-	c.juggle = cs.juggle
-	c.life = cs.life
-	c.name = cs.name
-	c.key = cs.key
+	c.redLife = cs.RedLife
+	c.juggle = cs.Juggle
+	c.life = cs.Life
+	c.name = cs.Name
+	c.key = cs.Key
 	c.id = cs.id
 	c.helperId = cs.helperId
 	c.helperIndex = cs.helperIndex
@@ -2178,18 +2183,18 @@ func (c *Char) loadCharState(cs CharState) {
 	c.guardPoints = cs.guardPoints
 	c.guardPointsMax = cs.guardPointsMax
 	c.fallTime = cs.fallTime
-	c.localcoord = cs.localcoord
-	c.localscl = cs.localscl
+	c.localcoord = cs.Localcoord
+	c.localscl = cs.Localscl
 	c.clsnScale = cs.clsnScale
 	c.hoIdx = cs.hoIdx
 	c.mctime = cs.mctime
 	c.targets = cs.targets
 	c.targetsOfHitdef = cs.targetsOfHitdef
-	c.pos = cs.pos
-	c.drawPos = cs.drawPos
-	c.oldPos = cs.oldPos
-	c.vel = cs.vel
-	c.facing = cs.facing
+	c.pos = cs.Pos
+	c.drawPos = cs.DrawPos
+	c.oldPos = cs.OldPos
+	c.vel = cs.Vel
+	c.facing = cs.Facing
 	c.p1facing = cs.p1facing
 	c.cpucmd = cs.cpucmd
 	c.attackDist = cs.attackDist
@@ -2214,39 +2219,39 @@ func (c *Char) loadCharState(cs CharState) {
 	c.preserve = cs.preserve
 	c.inputFlag = cs.inputFlag
 	c.pauseBool = cs.pauseBool
-	c.airJumpCount = cs.airJumpCount
-	c.hitCount = cs.hitCount
-	c.uniqHitCount = cs.uniqHitCount
-	c.pauseMovetime = cs.pauseMovetime
-	c.superMovetime = cs.superMovetime
-	c.bindTime = cs.bindTime
-	c.bindToId = cs.bindToId
-	c.bindPos = cs.bindPos
-	c.bindFacing = cs.bindFacing
-	c.hitPauseTime = cs.hitPauseTime
-	c.angle = cs.angle
-	c.angleScale = cs.angleScale
-	c.alpha = cs.alpha
-	c.recoverTime = cs.recoverTime
-	c.systemFlag = cs.systemFlag
-	c.specialFlag = cs.specialFlag
-	c.sprPriority = cs.sprPriority
-	c.receivedHits = cs.receivedHits
-	c.fakeReceivedHits = cs.fakeReceivedHits
-	c.velOff = cs.velOff
-	c.width = cs.width
-	c.edge = cs.edge
-	c.attackMul = cs.attackMul
-	c.superDefenseMul = cs.superDefenseMul
-	c.fallDefenseMul = cs.fallDefenseMul
-	c.customDefense = cs.customDefense
-	c.finalDefense = cs.finalDefense
-	c.defenseMulDelay = cs.defenseMulDelay
-	c.counterHit = cs.counterHit
-	c.firstAttack = cs.firstAttack
-	c.comboDmg = cs.comboDmg
-	c.fakeComboDmg = cs.fakeComboDmg
-	c.fakeCombo = cs.fakeCombo
+	c.airJumpCount = cs.csv.airJumpCount
+	c.hitCount = cs.csv.hitCount
+	c.uniqHitCount = cs.csv.uniqHitCount
+	c.pauseMovetime = cs.csv.pauseMovetime
+	c.superMovetime = cs.csv.superMovetime
+	c.bindTime = cs.csv.bindTime
+	c.bindToId = cs.csv.bindToId
+	c.bindPos = cs.csv.bindPos
+	c.bindFacing = cs.csv.bindFacing
+	c.hitPauseTime = cs.csv.hitPauseTime
+	c.angle = cs.csv.angle
+	c.angleScale = cs.csv.angleScale
+	c.alpha = cs.csv.alpha
+	c.recoverTime = cs.csv.recoverTime
+	c.systemFlag = cs.csv.systemFlag
+	c.specialFlag = cs.csv.specialFlag
+	c.sprPriority = cs.csv.sprPriority
+	c.receivedHits = cs.csv.receivedHits
+	c.fakeReceivedHits = cs.csv.fakeReceivedHits
+	c.velOff = cs.csv.velOff
+	c.width = cs.csv.width
+	c.edge = cs.csv.edge
+	c.attackMul = cs.csv.attackMul
+	c.superDefenseMul = cs.csv.superDefenseMul
+	c.fallDefenseMul = cs.csv.fallDefenseMul
+	c.customDefense = cs.csv.customDefense
+	c.finalDefense = cs.csv.finalDefense
+	c.defenseMulDelay = cs.csv.defenseMulDelay
+	c.counterHit = cs.csv.counterHit
+	c.firstAttack = cs.csv.firstAttack
+	c.comboDmg = cs.csv.comboDmg
+	c.fakeComboDmg = cs.csv.fakeComboDmg
+	c.fakeCombo = cs.csv.fakeCombo
 
 	c.keyctrl = cs.keyctrl
 	c.power = cs.power
@@ -6626,7 +6631,7 @@ func (cl *CharList) action(ib []InputBits, x float32, cvmin, cvmax,
 	highest, lowest, leftest, rightest *float32) {
 	for i, p := range sys.chars {
 		if i < len(ib) {
-			fmt.Println(ib[i])
+			//fmt.Println(ib[i])
 		} else {
 			continue
 		}
@@ -6639,12 +6644,32 @@ func (cl *CharList) action(ib []InputBits, x float32, cvmin, cvmax,
 				}
 				continue
 			}
+			act := true
+			if sys.super > 0 {
+				act = r.superMovetime != 0
+			} else if sys.pause > 0 && r.pauseMovetime == 0 {
+				act = false
+			}
+			if act && !r.sf(CSF_noautoturn) &&
+				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20) {
+				r.turn()
+			}
+
 			for _, c := range p {
 				if c.helperIndex == 0 ||
 					c.helperIndex > 0 && &c.cmd[0] != &r.cmd[0] {
 					c.cmd[0].Buffer.InputBits(ib[i], int32(c.facing))
 					hp := c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0
 					buftime := Btoi(hp && c.gi().ver[0] != 1)
+					if sys.super > 0 {
+						if !act && sys.super <= sys.superendcmdbuftime {
+							hp = true
+						}
+					} else if sys.pause > 0 {
+						if !act && sys.pause <= sys.pauseendcmdbuftime {
+							hp = true
+						}
+					}
 					for j := range c.cmd {
 						c.cmd[j].Step(int32(c.facing), c.key < 0, hp, buftime+Btoi(hp))
 					}

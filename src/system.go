@@ -95,8 +95,8 @@ var sys = System{
 	currentState:         *NewGameState(),
 	gameStates:           [8]GameState{},
 	replays:              [8]ReplayState{},
-	gameStatePool:        make(chan *GameState, 8),
-	replayPool:           make(chan *ReplayState, 8),
+	gameStatePool:        make(chan *GameState, 9),
+	replayPool:           make(chan *ReplayState, 9),
 	rollbackState: RollbackState{
 		rollbackTest:   true,
 		rollbackWindow: 8,
@@ -383,6 +383,264 @@ type System struct {
 	rbTestEveryNFrames bool
 	rbTestEveryFrame   bool
 	rollbackNetwork    *RollbackSession
+
+	currentFight Fight
+}
+
+type Fight struct {
+	fin                          bool
+	oldTeamLeader                [2]int
+	oldWins                      [2]int32
+	oldDraws                     int32
+	oldStageVars                 Stage
+	level                        []int32
+	lvmul                        float64
+	life, pow, gpow, spow, rlife []int32
+	ivar                         [][]int32
+	fvar                         [][]float32
+	dialogue                     [][]string
+	mapArray                     []map[string]float32
+	remapSpr                     []RemapPreset
+}
+
+func (f *Fight) copyVar(pn int) {
+	f.life[pn] = sys.chars[pn][0].life
+	f.pow[pn] = sys.chars[pn][0].power
+	f.gpow[pn] = sys.chars[pn][0].guardPoints
+	f.spow[pn] = sys.chars[pn][0].dizzyPoints
+	f.rlife[pn] = sys.chars[pn][0].redLife
+	if len(f.ivar[pn]) < len(sys.chars[pn][0].ivar) {
+		f.ivar[pn] = make([]int32, len(sys.chars[pn][0].ivar))
+	}
+	copy(f.ivar[pn], sys.chars[pn][0].ivar[:])
+	if len(f.fvar[pn]) < len(sys.chars[pn][0].fvar) {
+		f.fvar[pn] = make([]float32, len(sys.chars[pn][0].fvar))
+	}
+	copy(f.fvar[pn], sys.chars[pn][0].fvar[:])
+	copy(f.dialogue[pn], sys.chars[pn][0].dialogue[:])
+	f.mapArray[pn] = make(map[string]float32)
+	for k, v := range sys.chars[pn][0].mapArray {
+		f.mapArray[pn][k] = v
+	}
+	f.remapSpr[pn] = make(RemapPreset)
+	for k, v := range sys.chars[pn][0].remapSpr {
+		f.remapSpr[pn][k] = v
+	}
+	// Reset hitScale.
+	sys.chars[pn][0].defaultHitScale = newHitScaleArray()
+	sys.chars[pn][0].activeHitScale = make(map[int32][3]*HitScale)
+	sys.chars[pn][0].nextHitScale = make(map[int32][3]*HitScale)
+
+}
+
+func (f *Fight) reset() {
+	sys.wins, sys.draws = f.oldWins, f.oldDraws
+	sys.teamLeader = f.oldTeamLeader
+	for i, p := range sys.chars {
+		if len(p) > 0 {
+			p[0].life = f.life[i]
+			p[0].power = f.pow[i]
+			p[0].guardPoints = f.gpow[i]
+			p[0].dizzyPoints = f.spow[i]
+			p[0].redLife = f.rlife[i]
+			copy(p[0].ivar[:], f.ivar[i])
+			copy(p[0].fvar[:], f.fvar[i])
+			copy(p[0].dialogue[:], f.dialogue[i])
+			p[0].mapArray = make(map[string]float32)
+			for k, v := range f.mapArray[i] {
+				p[0].mapArray[k] = v
+			}
+			p[0].remapSpr = make(RemapPreset)
+			for k, v := range f.remapSpr[i] {
+				p[0].remapSpr[k] = v
+			}
+
+			// Reset hitScale
+			p[0].defaultHitScale = newHitScaleArray()
+			p[0].activeHitScale = make(map[int32][3]*HitScale)
+			p[0].nextHitScale = make(map[int32][3]*HitScale)
+		}
+	}
+	sys.stage.copyStageVars(&f.oldStageVars)
+	sys.resetFrameTime()
+	sys.nextRound()
+	sys.roundResetFlg, sys.introSkipped = false, false
+	sys.reloadFlg, sys.reloadStageFlg, sys.reloadLifebarFlg = false, false, false
+	sys.cam.Update(sys.cam.startzoom, 0, 0)
+}
+
+func (f *Fight) endFight() {
+	sys.oldNextAddTime = 1
+	sys.nomusic = false
+	sys.allPalFX.clear()
+	sys.allPalFX.enable = false
+	for i, p := range sys.chars {
+		if len(p) > 0 {
+			sys.playerClear(i, sys.matchOver() || (sys.tmode[i&1] == TM_Turns && p[0].life <= 0))
+		}
+	}
+	sys.wincnt.update()
+}
+
+func (f *Fight) initChars() {
+	// Initialize each character
+	f.lvmul = math.Pow(2, 1.0/12)
+	for i, p := range sys.chars {
+		if len(p) > 0 {
+			// Get max life, and adjust based on team mode
+			var lm float32
+			if p[0].ocd().lifeMax != -1 {
+				lm = float32(p[0].ocd().lifeMax) * p[0].ocd().lifeRatio * sys.lifeMul
+			} else {
+				lm = float32(p[0].gi().data.life) * p[0].ocd().lifeRatio * sys.lifeMul
+			}
+			if p[0].teamside != -1 {
+				switch sys.tmode[i&1] {
+				case TM_Single:
+					switch sys.tmode[(i+1)&1] {
+					case TM_Simul, TM_Tag:
+						lm *= sys.team1VS2Life
+					case TM_Turns:
+						if sys.numTurns[(i+1)&1] < sys.matchWins[(i+1)&1] && sys.lifeShare[i&1] {
+							lm = lm * float32(sys.numTurns[(i+1)&1]) /
+								float32(sys.matchWins[(i+1)&1])
+						}
+					}
+				case TM_Simul, TM_Tag:
+					switch sys.tmode[(i+1)&1] {
+					case TM_Simul, TM_Tag:
+						if sys.numSimul[(i+1)&1] < sys.numSimul[i&1] && sys.lifeShare[i&1] {
+							lm = lm * float32(sys.numSimul[(i+1)&1]) / float32(sys.numSimul[i&1])
+						}
+					case TM_Turns:
+						if sys.numTurns[(i+1)&1] < sys.numSimul[i&1]*sys.matchWins[(i+1)&1] && sys.lifeShare[i&1] {
+							lm = lm * float32(sys.numTurns[(i+1)&1]) /
+								float32(sys.numSimul[i&1]*sys.matchWins[(i+1)&1])
+						}
+					default:
+						if sys.lifeShare[i&1] {
+							lm /= float32(sys.numSimul[i&1])
+						}
+					}
+				case TM_Turns:
+					switch sys.tmode[(i+1)&1] {
+					case TM_Single:
+						if sys.matchWins[i&1] < sys.numTurns[i&1] && sys.lifeShare[i&1] {
+							lm = lm * float32(sys.matchWins[i&1]) / float32(sys.numTurns[i&1])
+						}
+					case TM_Simul, TM_Tag:
+						if sys.numSimul[(i+1)&1]*sys.matchWins[i&1] < sys.numTurns[i&1] && sys.lifeShare[i&1] {
+							lm = lm * sys.team1VS2Life *
+								float32(sys.numSimul[(i+1)&1]*sys.matchWins[i&1]) /
+								float32(sys.numTurns[i&1])
+						}
+					case TM_Turns:
+						if sys.numTurns[(i+1)&1] < sys.numTurns[i&1] && sys.lifeShare[i&1] {
+							lm = lm * float32(sys.numTurns[(i+1)&1]) / float32(sys.numTurns[i&1])
+						}
+					}
+				}
+			}
+			foo := math.Pow(f.lvmul, float64(-f.level[i]))
+			p[0].lifeMax = Max(1, int32(math.Floor(foo*float64(lm))))
+
+			if p[0].roundsExisted() > 0 {
+				/* If character already existed for a round, presumably because of turns mode, just update life */
+				p[0].life = Min(p[0].lifeMax, int32(math.Ceil(foo*float64(p[0].life))))
+			} else if sys.round == 1 || sys.tmode[i&1] == TM_Turns {
+				/* If round 1 or a new character in turns mode, initialize values */
+				if p[0].ocd().life != -1 {
+					p[0].life = p[0].ocd().life
+				} else {
+					p[0].life = p[0].lifeMax
+				}
+				if sys.round == 1 {
+					if sys.maxPowerMode {
+						p[0].power = p[0].powerMax
+					} else if p[0].ocd().power != -1 {
+						p[0].power = p[0].ocd().power
+					} else {
+						p[0].power = 0
+					}
+				}
+				p[0].dialogue = []string{}
+				p[0].mapArray = make(map[string]float32)
+				for k, v := range p[0].mapDefault {
+					p[0].mapArray[k] = v
+				}
+				p[0].remapSpr = make(RemapPreset)
+
+				// Reset hitScale
+				p[0].defaultHitScale = newHitScaleArray()
+				p[0].activeHitScale = make(map[int32][3]*HitScale)
+				p[0].nextHitScale = make(map[int32][3]*HitScale)
+			}
+
+			if p[0].ocd().guardPoints != -1 {
+				p[0].guardPoints = p[0].ocd().guardPoints
+			} else {
+				p[0].guardPoints = p[0].guardPointsMax
+			}
+			if p[0].ocd().dizzyPoints != -1 {
+				p[0].dizzyPoints = p[0].ocd().dizzyPoints
+			} else {
+				p[0].dizzyPoints = p[0].dizzyPointsMax
+			}
+			p[0].redLife = 0
+			f.copyVar(i)
+		}
+	}
+}
+func (f *Fight) initSuperMeter() {
+	for i, p := range sys.chars {
+		if len(p) > 0 {
+			p[0].clear2()
+			f.level[i] = sys.wincnt.getLevel(i)
+			if sys.powerShare[i&1] && p[0].teamside != -1 {
+				pmax := Max(sys.cgi[i&1].data.power, sys.cgi[i].data.power)
+				for j := i & 1; j < MaxSimul*2; j += 2 {
+					if len(sys.chars[j]) > 0 {
+						sys.chars[j][0].powerMax = pmax
+					}
+				}
+			}
+		}
+	}
+}
+
+func (f *Fight) initTeamsLevels() {
+	minlv, maxlv := f.level[0], f.level[0]
+	for i, lv := range f.level[1:] {
+		if len(sys.chars[i+1]) > 0 {
+			minlv = Min(minlv, lv)
+			maxlv = Max(maxlv, lv)
+		}
+	}
+	if minlv > 0 {
+		for i := range f.level {
+			f.level[i] -= minlv
+		}
+	} else if maxlv < 0 {
+		for i := range f.level {
+			f.level[i] -= maxlv
+		}
+	}
+}
+func NewFight() Fight {
+	f := Fight{}
+	f.oldStageVars.copyStageVars(sys.stage)
+	f.life = make([]int32, len(sys.chars))
+	f.pow = make([]int32, len(sys.chars))
+	f.gpow = make([]int32, len(sys.chars))
+	f.spow = make([]int32, len(sys.chars))
+	f.rlife = make([]int32, len(sys.chars))
+	f.ivar = make([][]int32, len(sys.chars))
+	f.fvar = make([][]float32, len(sys.chars))
+	f.dialogue = make([][]string, len(sys.chars))
+	f.mapArray = make([]map[string]float32, len(sys.chars))
+	f.remapSpr = make([]RemapPreset, len(sys.chars))
+	f.level = make([]int32, len(sys.chars))
+	return f
 }
 
 type Window struct {
@@ -1809,7 +2067,7 @@ func readI32(b []byte) int32 {
 	if len(b) < 4 {
 		return 0
 	}
-	fmt.Printf("b[0] %d b[1] %d b[2] %d b[3] %d\n", b[0], b[1], b[2], b[3])
+	//fmt.Printf("b[0] %d b[1] %d b[2] %d b[3] %d\n", b[0], b[1], b[2], b[3])
 	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24
 }
 
@@ -1829,7 +2087,7 @@ func writeI32(i32 int32) []byte {
 func getInputs(player int) []byte {
 	for _, p := range sys.chars {
 		for _, ch := range p {
-			fmt.Printf("ch.name %s ch.playerNo %d player %d\n", ch.name, ch.playerNo, player)
+			//fmt.Printf("ch.name %s ch.playerNo %d player %d\n", ch.name, ch.playerNo, player)
 			if ch.playerNo != player-1 {
 				continue
 			}
@@ -1879,147 +2137,182 @@ func getInputs(player int) []byte {
 func getInput() {
 
 }
-func (s *System) runFrame(fin bool, copyVar func(pn int), reset func(),
-	oldTeamLeader [2]int, oldWins [2]int32, oldDraws int32, oldStageVars Stage, level [len(sys.chars)]int32,
-	lvmul float64) bool {
 
-	buffer := getInputs(sys.rollbackNetwork.playerNo)
-	result := s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(sys.rollbackNetwork.playerNo), buffer, len(buffer))
-	//buffer = getInputs(2)
-	//result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(2), buffer, len(buffer))
-	fmt.Println(buffer)
+func (s *System) runShortcutScripts() {
+	for _, v := range s.shortcutScripts {
+		if v.Activate {
+			if err := s.luaLState.DoString(v.Script); err != nil {
+				s.errLog.Println(err.Error())
+			}
+		}
+	}
+}
+
+func (s *System) runNextRound() bool {
+	if s.roundOver() && !s.currentFight.fin {
+		s.round++
+		for i := range s.roundsExisted {
+			s.roundsExisted[i]++
+		}
+		s.clearAllSound()
+		tbl_roundNo := s.luaLState.NewTable()
+		for _, p := range s.chars {
+			if len(p) > 0 && p[0].teamside != -1 {
+				tmp := s.luaLState.NewTable()
+				tmp.RawSetString("name", lua.LString(p[0].name))
+				tmp.RawSetString("id", lua.LNumber(p[0].id))
+				tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
+				tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
+				tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
+				tmp.RawSetString("life", lua.LNumber(p[0].life))
+				tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
+				tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
+				tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
+				tmp.RawSetString("palno", lua.LNumber(p[0].palno()))
+				tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
+				tmp.RawSetString("win", lua.LBool(p[0].win()))
+				tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
+				tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
+				tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
+				tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_S)))
+				tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_H)))
+				tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
+				tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
+				tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
+				tmp.RawSetString("firstAttack", lua.LBool(p[0].firstAttack))
+				tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
+				p[0].firstAttack = false
+			}
+		}
+		s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
+		s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
+		s.currentFight.oldTeamLeader = s.teamLeader
+
+		if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
+			(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
+			/* Prepare for the next round */
+			for i, p := range s.chars {
+				if len(p) > 0 {
+					if s.tmode[i&1] != TM_Turns || !p[0].win() {
+						p[0].life = p[0].lifeMax
+					} else if p[0].life <= 0 {
+						p[0].life = 1
+					}
+					p[0].redLife = 0
+					s.currentFight.copyVar(i)
+				}
+			}
+			s.currentFight.oldWins, s.currentFight.oldDraws = s.wins, s.draws
+			s.currentFight.oldStageVars.copyStageVars(s.stage)
+			s.currentFight.reset()
+		} else {
+			/* End match, or prepare for a new character in turns mode */
+			for i, tm := range s.tmode {
+				if s.chars[i][0].win() || !s.chars[i][0].lose() && tm != TM_Turns {
+					for j := i; j < len(s.chars); j += 2 {
+						if len(s.chars[j]) > 0 {
+							if s.chars[j][0].win() {
+								s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(s.currentFight.lvmul,
+									float64(s.currentFight.level[i]))*float64(s.chars[j][0].life))))
+							} else {
+								s.chars[j][0].life = Max(1, s.cgi[j].data.life)
+							}
+						}
+					}
+					//} else {
+					//	s.chars[i][0].life = 0
+				}
+			}
+			// If match isn't over, presumably this is turns mode,
+			// so break to restart fight for the next character
+			if !s.matchOver() {
+				return false
+			}
+
+			// Otherwise match is over
+			s.postMatchFlg = true
+			s.currentFight.fin = true
+		}
+	}
+	return true
+}
+
+func (s *System) updateStage() {
+	if s.tickFrame() && (s.super <= 0 || !s.superpausebg) &&
+		(s.pause <= 0 || !s.pausebg) {
+		// Update stage
+		s.stage.action()
+	}
+}
+
+func (s *System) handleFlags() bool {
+	// F4 pressed to restart round
+	if s.roundResetFlg && !s.postMatchFlg {
+		s.currentFight.reset()
+	}
+	// Shift+F4 pressed to restart match
+	if s.reloadFlg {
+		return true
+	}
+	return false
+}
+
+func (s *System) updateEvents() bool {
+	if !s.addFrameTime(s.turbo) {
+		if !s.eventUpdate() {
+			return false
+		}
+		return false
+	}
+	return true
+}
+
+func (s *System) runFrame() bool {
+	var buffer []byte
+	var result error
+	if s.rollbackNetwork.syncTest {
+		buffer = getInputs(1)
+		s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
+		buffer = getInputs(2)
+		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(2), buffer, len(buffer))
+	} else {
+		buffer = getInputs(sys.rollbackNetwork.playerNo)
+		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(sys.rollbackNetwork.playerNo), buffer, len(buffer))
+	}
+
 	if result == nil {
 
 		var values [][]byte
 		disconnectFlags := 0
 		values, result = s.rollbackNetwork.backend.SyncInput(&disconnectFlags)
-		fmt.Printf("values %v\n", values)
+		//fmt.Printf("values %v\n", values)
 		inputs := decodeInputs(values)
 		fmt.Println(inputs)
 		if result == nil {
 			s.step = false
-			for _, v := range s.shortcutScripts {
-				if v.Activate {
-					if err := s.luaLState.DoString(v.Script); err != nil {
-						s.errLog.Println(err.Error())
-					}
-				}
-			}
+			s.runShortcutScripts()
 
 			// If next round
-			if s.roundOver() && !fin {
-				s.round++
-				for i := range s.roundsExisted {
-					s.roundsExisted[i]++
-				}
-				s.clearAllSound()
-				tbl_roundNo := s.luaLState.NewTable()
-				for _, p := range s.chars {
-					if len(p) > 0 && p[0].teamside != -1 {
-						tmp := s.luaLState.NewTable()
-						tmp.RawSetString("name", lua.LString(p[0].name))
-						tmp.RawSetString("id", lua.LNumber(p[0].id))
-						tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
-						tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
-						tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
-						tmp.RawSetString("life", lua.LNumber(p[0].life))
-						tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
-						tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
-						tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
-						tmp.RawSetString("palno", lua.LNumber(p[0].palno()))
-						tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
-						tmp.RawSetString("win", lua.LBool(p[0].win()))
-						tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
-						tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
-						tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
-						tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_S)))
-						tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_H)))
-						tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
-						tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
-						tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
-						tmp.RawSetString("firstAttack", lua.LBool(p[0].firstAttack))
-						tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
-						p[0].firstAttack = false
-					}
-				}
-				s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
-				s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
-				oldTeamLeader = s.teamLeader
-
-				if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
-					(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
-					/* Prepare for the next round */
-					for i, p := range s.chars {
-						if len(p) > 0 {
-							if s.tmode[i&1] != TM_Turns || !p[0].win() {
-								p[0].life = p[0].lifeMax
-							} else if p[0].life <= 0 {
-								p[0].life = 1
-							}
-							p[0].redLife = 0
-							copyVar(i)
-						}
-					}
-					oldWins, oldDraws = s.wins, s.draws
-					oldStageVars.copyStageVars(s.stage)
-					reset()
-				} else {
-					/* End match, or prepare for a new character in turns mode */
-					for i, tm := range s.tmode {
-						if s.chars[i][0].win() || !s.chars[i][0].lose() && tm != TM_Turns {
-							for j := i; j < len(s.chars); j += 2 {
-								if len(s.chars[j]) > 0 {
-									if s.chars[j][0].win() {
-										s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(lvmul,
-											float64(level[i]))*float64(s.chars[j][0].life))))
-									} else {
-										s.chars[j][0].life = Max(1, s.cgi[j].data.life)
-									}
-								}
-							}
-							//} else {
-							//	s.chars[i][0].life = 0
-						}
-					}
-					// If match isn't over, presumably this is turns mode,
-					// so break to restart fight for the next character
-					if !s.matchOver() {
-						return false
-					}
-
-					// Otherwise match is over
-					s.postMatchFlg = true
-					fin = true
-				}
+			if !s.runNextRound() {
+				return false
 			}
 
 			// If frame is ready to tick and not paused
-			if s.tickFrame() && (s.super <= 0 || !s.superpausebg) &&
-				(s.pause <= 0 || !s.pausebg) {
-				// Update stage
-				s.stage.action()
-			}
+			s.updateStage()
 
 			// Update game state
 			s.action(inputs)
 
-			// F4 pressed to restart round
-			if s.roundResetFlg && !s.postMatchFlg {
-				reset()
-			}
-			// Shift+F4 pressed to restart match
-			if s.reloadFlg {
+			if s.handleFlags() {
 				return true
 			}
 
-			if !s.addFrameTime(s.turbo) {
-				if !s.eventUpdate() {
-					return false
-				}
+			if !s.updateEvents() {
 				return false
 			}
+
 			// Break if finished
-			if fin && (!s.postMatchFlg || len(sys.commonLua) == 0) {
+			if sys.currentFight.fin && (!s.postMatchFlg || len(sys.commonLua) == 0) {
 				return false
 			}
 
@@ -2036,6 +2329,8 @@ func (s *System) runFrame(fin bool, copyVar func(pn int), reset func(),
 				s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
 				return false
 			}
+
+			fmt.Println("Advancing game from within runframe.")
 
 			err := s.rollbackNetwork.backend.AdvanceFrame()
 			if err != nil {
@@ -2180,57 +2475,20 @@ func (s *System) fight() (reload bool) {
 	// Reset variables
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}
+	sys.currentFight = NewFight()
 	// Defer resetting variables on return
-	defer func() {
-		s.oldNextAddTime = 1
-		s.nomusic = false
-		s.allPalFX.clear()
-		s.allPalFX.enable = false
-		for i, p := range s.chars {
-			if len(p) > 0 {
-				s.playerClear(i, s.matchOver() || (s.tmode[i&1] == TM_Turns && p[0].life <= 0))
-			}
-		}
-		s.wincnt.update()
-	}()
-	var oldStageVars Stage
-	oldStageVars.copyStageVars(s.stage)
-	var life, pow, gpow, spow, rlife [len(s.chars)]int32
-	var ivar [len(s.chars)][]int32
-	var fvar [len(s.chars)][]float32
-	var dialogue [len(s.chars)][]string
-	var mapArray [len(s.chars)]map[string]float32
-	var remapSpr [len(s.chars)]RemapPreset
-	// Anonymous function to assign initial character values
-	copyVar := func(pn int) {
-		life[pn] = s.chars[pn][0].life
-		pow[pn] = s.chars[pn][0].power
-		gpow[pn] = s.chars[pn][0].guardPoints
-		spow[pn] = s.chars[pn][0].dizzyPoints
-		rlife[pn] = s.chars[pn][0].redLife
-		if len(ivar[pn]) < len(s.chars[pn][0].ivar) {
-			ivar[pn] = make([]int32, len(s.chars[pn][0].ivar))
-		}
-		copy(ivar[pn], s.chars[pn][0].ivar[:])
-		if len(fvar[pn]) < len(s.chars[pn][0].fvar) {
-			fvar[pn] = make([]float32, len(s.chars[pn][0].fvar))
-		}
-		copy(fvar[pn], s.chars[pn][0].fvar[:])
-		copy(dialogue[pn], s.chars[pn][0].dialogue[:])
-		mapArray[pn] = make(map[string]float32)
-		for k, v := range s.chars[pn][0].mapArray {
-			mapArray[pn][k] = v
-		}
-		remapSpr[pn] = make(RemapPreset)
-		for k, v := range s.chars[pn][0].remapSpr {
-			remapSpr[pn][k] = v
-		}
+	defer sys.currentFight.endFight()
 
-		// Reset hitScale.
-		s.chars[pn][0].defaultHitScale = newHitScaleArray()
-		s.chars[pn][0].activeHitScale = make(map[int32][3]*HitScale)
-		s.chars[pn][0].nextHitScale = make(map[int32][3]*HitScale)
-	}
+	//var oldStageVars Stage
+	//oldStageVars.copyStageVars(s.stage)
+	//var life, pow, gpow, spow, rlife [len(s.chars)]int32
+	//var ivar [len(s.chars)][]int32
+	//var fvar [len(s.chars)][]float32
+	//var dialogue [len(s.chars)][]string
+	//var mapArray [len(s.chars)]map[string]float32
+	//var remapSpr [len(s.chars)]RemapPreset
+
+	// Anonymous function to assign initial character values
 
 	s.debugWC = sys.chars[0][0]
 	// debugInput := func() {
@@ -2254,189 +2512,18 @@ func (s *System) fight() (reload bool) {
 	s.wincnt.init()
 
 	// Initialize super meter values, and max power for teams sharing meter
-	var level [len(s.chars)]int32
-	for i, p := range s.chars {
-		if len(p) > 0 {
-			p[0].clear2()
-			level[i] = s.wincnt.getLevel(i)
-			if s.powerShare[i&1] && p[0].teamside != -1 {
-				pmax := Max(s.cgi[i&1].data.power, s.cgi[i].data.power)
-				for j := i & 1; j < MaxSimul*2; j += 2 {
-					if len(s.chars[j]) > 0 {
-						s.chars[j][0].powerMax = pmax
-					}
-				}
-			}
-		}
-	}
-	minlv, maxlv := level[0], level[0]
-	for i, lv := range level[1:] {
-		if len(s.chars[i+1]) > 0 {
-			minlv = Min(minlv, lv)
-			maxlv = Max(maxlv, lv)
-		}
-	}
-	if minlv > 0 {
-		for i := range level {
-			level[i] -= minlv
-		}
-	} else if maxlv < 0 {
-		for i := range level {
-			level[i] -= maxlv
-		}
-	}
+	sys.currentFight.initSuperMeter()
+	sys.currentFight.initTeamsLevels()
 
-	// Initialize each character
-	lvmul := math.Pow(2, 1.0/12)
-	for i, p := range s.chars {
-		if len(p) > 0 {
-			// Get max life, and adjust based on team mode
-			var lm float32
-			if p[0].ocd().lifeMax != -1 {
-				lm = float32(p[0].ocd().lifeMax) * p[0].ocd().lifeRatio * s.lifeMul
-			} else {
-				lm = float32(p[0].gi().data.life) * p[0].ocd().lifeRatio * s.lifeMul
-			}
-			if p[0].teamside != -1 {
-				switch s.tmode[i&1] {
-				case TM_Single:
-					switch s.tmode[(i+1)&1] {
-					case TM_Simul, TM_Tag:
-						lm *= s.team1VS2Life
-					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.matchWins[(i+1)&1] && s.lifeShare[i&1] {
-							lm = lm * float32(s.numTurns[(i+1)&1]) /
-								float32(s.matchWins[(i+1)&1])
-						}
-					}
-				case TM_Simul, TM_Tag:
-					switch s.tmode[(i+1)&1] {
-					case TM_Simul, TM_Tag:
-						if s.numSimul[(i+1)&1] < s.numSimul[i&1] && s.lifeShare[i&1] {
-							lm = lm * float32(s.numSimul[(i+1)&1]) / float32(s.numSimul[i&1])
-						}
-					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.numSimul[i&1]*s.matchWins[(i+1)&1] && s.lifeShare[i&1] {
-							lm = lm * float32(s.numTurns[(i+1)&1]) /
-								float32(s.numSimul[i&1]*s.matchWins[(i+1)&1])
-						}
-					default:
-						if s.lifeShare[i&1] {
-							lm /= float32(s.numSimul[i&1])
-						}
-					}
-				case TM_Turns:
-					switch s.tmode[(i+1)&1] {
-					case TM_Single:
-						if s.matchWins[i&1] < s.numTurns[i&1] && s.lifeShare[i&1] {
-							lm = lm * float32(s.matchWins[i&1]) / float32(s.numTurns[i&1])
-						}
-					case TM_Simul, TM_Tag:
-						if s.numSimul[(i+1)&1]*s.matchWins[i&1] < s.numTurns[i&1] && s.lifeShare[i&1] {
-							lm = lm * s.team1VS2Life *
-								float32(s.numSimul[(i+1)&1]*s.matchWins[i&1]) /
-								float32(s.numTurns[i&1])
-						}
-					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.numTurns[i&1] && s.lifeShare[i&1] {
-							lm = lm * float32(s.numTurns[(i+1)&1]) / float32(s.numTurns[i&1])
-						}
-					}
-				}
-			}
-			foo := math.Pow(lvmul, float64(-level[i]))
-			p[0].lifeMax = Max(1, int32(math.Floor(foo*float64(lm))))
-
-			if p[0].roundsExisted() > 0 {
-				/* If character already existed for a round, presumably because of turns mode, just update life */
-				p[0].life = Min(p[0].lifeMax, int32(math.Ceil(foo*float64(p[0].life))))
-			} else if s.round == 1 || s.tmode[i&1] == TM_Turns {
-				/* If round 1 or a new character in turns mode, initialize values */
-				if p[0].ocd().life != -1 {
-					p[0].life = p[0].ocd().life
-				} else {
-					p[0].life = p[0].lifeMax
-				}
-				if s.round == 1 {
-					if s.maxPowerMode {
-						p[0].power = p[0].powerMax
-					} else if p[0].ocd().power != -1 {
-						p[0].power = p[0].ocd().power
-					} else {
-						p[0].power = 0
-					}
-				}
-				p[0].dialogue = []string{}
-				p[0].mapArray = make(map[string]float32)
-				for k, v := range p[0].mapDefault {
-					p[0].mapArray[k] = v
-				}
-				p[0].remapSpr = make(RemapPreset)
-
-				// Reset hitScale
-				p[0].defaultHitScale = newHitScaleArray()
-				p[0].activeHitScale = make(map[int32][3]*HitScale)
-				p[0].nextHitScale = make(map[int32][3]*HitScale)
-			}
-
-			if p[0].ocd().guardPoints != -1 {
-				p[0].guardPoints = p[0].ocd().guardPoints
-			} else {
-				p[0].guardPoints = p[0].guardPointsMax
-			}
-			if p[0].ocd().dizzyPoints != -1 {
-				p[0].dizzyPoints = p[0].ocd().dizzyPoints
-			} else {
-				p[0].dizzyPoints = p[0].dizzyPointsMax
-			}
-			p[0].redLife = 0
-			copyVar(i)
-		}
-	}
+	sys.currentFight.initChars()
 
 	//default bgm playback, used only in Quick VS or if externalized Lua implementaion is disabled
 	if s.round == 1 && (s.gameMode == "" || len(sys.commonLua) == 0) {
 		s.bgm.Open(s.stage.bgmusic, 1, 100, 0, 0)
 	}
 
-	oldWins, oldDraws := s.wins, s.draws
-	oldTeamLeader := s.teamLeader
-	// Anonymous function to reset values, called at the start of each round
-	reset := func() {
-		s.wins, s.draws = oldWins, oldDraws
-		s.teamLeader = oldTeamLeader
-		for i, p := range s.chars {
-			if len(p) > 0 {
-				p[0].life = life[i]
-				p[0].power = pow[i]
-				p[0].guardPoints = gpow[i]
-				p[0].dizzyPoints = spow[i]
-				p[0].redLife = rlife[i]
-				copy(p[0].ivar[:], ivar[i])
-				copy(p[0].fvar[:], fvar[i])
-				copy(p[0].dialogue[:], dialogue[i])
-				p[0].mapArray = make(map[string]float32)
-				for k, v := range mapArray[i] {
-					p[0].mapArray[k] = v
-				}
-				p[0].remapSpr = make(RemapPreset)
-				for k, v := range remapSpr[i] {
-					p[0].remapSpr[k] = v
-				}
-
-				// Reset hitScale
-				p[0].defaultHitScale = newHitScaleArray()
-				p[0].activeHitScale = make(map[int32][3]*HitScale)
-				p[0].nextHitScale = make(map[int32][3]*HitScale)
-			}
-		}
-		s.stage.copyStageVars(&oldStageVars)
-		s.resetFrameTime()
-		s.nextRound()
-		s.roundResetFlg, s.introSkipped = false, false
-		s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
-		s.cam.Update(s.cam.startzoom, 0, 0)
-	}
+	sys.currentFight.oldWins, sys.currentFight.oldDraws = s.wins, s.draws
+	sys.currentFight.oldTeamLeader = s.teamLeader
 
 	var running bool
 	if sys.rollbackNetwork != nil {
@@ -2447,28 +2534,28 @@ func (s *System) fight() (reload bool) {
 			GameInitP2(2, 7600, 7550, "127.0.0.1")
 			sys.rollbackNetwork.playerNo = 2
 		}
-		for !sys.rollbackNetwork.IsConnected() {
+		if !sys.rollbackNetwork.IsConnected() {
 			sys.rollbackNetwork.backend.Idle(0)
 		}
 		sys.netInput.Close()
 		sys.netInput = nil
+	} else {
+		GameInitSyncTest(2)
 	}
 
-	reset()
+	sys.currentFight.reset()
 	// Loop until end of match
-	fin := false
+	///fin := false
 	for !s.endMatch {
+
 		s.rollbackNetwork.now = time.Now().UnixMilli()
 		err := s.rollbackNetwork.backend.Idle(
 			int(math.Max(0, float64(s.rollbackNetwork.next-s.rollbackNetwork.now-1))))
 		if err != nil {
 			panic(err)
 		}
-		running = sys.runFrame(fin,
-			copyVar, reset,
-			oldTeamLeader, oldWins,
-			oldDraws, oldStageVars,
-			level, lvmul)
+
+		running = sys.runFrame()
 		s.rollbackNetwork.next = s.rollbackNetwork.now + 1000/60
 
 		if !running {

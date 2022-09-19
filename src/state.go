@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"strconv"
 	"time"
 )
 
 func init() {
+
 	sys.gameState.randseed = sys.randseed
 
 	for i := 0; i < 8; i++ {
@@ -17,6 +19,13 @@ func init() {
 		rs := NewReplayState()
 		sys.replayPool <- &rs
 	}
+
+	for i := 0; i < 8; i++ {
+		sys.gameStates[i] = *NewGameState()
+	}
+
+	gob.Register(GameState{})
+	gob.Register(CharState{})
 }
 
 type ReplayState struct {
@@ -82,7 +91,7 @@ func (rs *ReplayState) RecordAnyButton() bool {
 
 func (rs *ReplayState) getLastFrame() (GameState, bool) {
 	for i := range rs.endState {
-		if rs.endState[i].gameTime == rs.startState.gameTime {
+		if rs.endState[i].GameTime == rs.startState.GameTime {
 			return rs.endState[i], true
 		}
 	}
@@ -136,47 +145,47 @@ type LifebarState struct {
 
 type CharState struct {
 	palFX          PalFX
-	childrenState  []CharState
-	enemynearState [2][]CharState
+	ChildrenState  []CharState
+	EnemynearState [2][]CharState
 
-	animState       AnimationState
-	cmd             []CommandList
-	ss              StateState
-	hitdef          HitDef
-	redLife         int32
-	juggle          int32
-	life            int32
-	name            string
-	key             int
-	id              int32
-	helperId        int32
-	helperIndex     int32
-	parentIndex     int32
-	playerNo        int
-	teamside        int
-	player          bool
-	animPN          int
-	animNo          int32
-	lifeMax         int32
-	powerMax        int32
-	dizzyPoints     int32
-	dizzyPointsMax  int32
-	guardPoints     int32
-	guardPointsMax  int32
-	fallTime        int32
-	localcoord      float32
-	localscl        float32
-	clsnScale       [2]float32
-	hoIdx           int
-	mctime          int32
-	targets         []int32
-	targetsOfHitdef []int32
-	pos             [3]float32
-	drawPos         [3]float32
-	oldPos          [3]float32
-	vel             [3]float32
-	facing          float32
-	CharSystemVar
+	animState             AnimationState
+	cmd                   []CommandList
+	ss                    StateState
+	hitdef                HitDef
+	RedLife               int32
+	Juggle                int32
+	Life                  int32
+	Name                  string
+	Key                   int
+	id                    int32
+	helperId              int32
+	helperIndex           int32
+	parentIndex           int32
+	playerNo              int
+	teamside              int
+	player                bool
+	animPN                int
+	animNo                int32
+	lifeMax               int32
+	powerMax              int32
+	dizzyPoints           int32
+	dizzyPointsMax        int32
+	guardPoints           int32
+	guardPointsMax        int32
+	fallTime              int32
+	Localcoord            float32
+	Localscl              float32
+	clsnScale             [2]float32
+	hoIdx                 int
+	mctime                int32
+	targets               []int32
+	targetsOfHitdef       []int32
+	Pos                   [3]float32
+	DrawPos               [3]float32
+	OldPos                [3]float32
+	Vel                   [3]float32
+	Facing                float32
+	csv                   CharSystemVar
 	p1facing              float32
 	cpucmd                int32
 	attackDist            float32
@@ -220,6 +229,23 @@ type CharState struct {
 	defaultHitScale [3]*HitScale
 	nextHitScale    map[int32][3]*HitScale
 	activeHitScale  map[int32][3]*HitScale
+}
+
+func (cs *CharState) String() string {
+	return fmt.Sprintf(`Char %s 
+	RedLife             :%d 
+	Juggle              :%d 
+	Life                :%d 
+	Key                 :%d  
+	Localcoord          :%f 
+	Localscl            :%f 
+	Pos                 :%v 
+	DrawPos             :%v 
+	OldPos              :%v 
+	Vel                 :%v  
+	Facing               :%f`,
+		cs.Name, cs.RedLife, cs.Juggle, cs.Life, cs.Key, cs.Localcoord,
+		cs.Localscl, cs.Pos, cs.DrawPos, cs.OldPos, cs.Vel, cs.Facing)
 }
 
 func (cs *CharState) findChar() *Char {
@@ -415,16 +441,48 @@ func (gs *GameState) getID() string {
 	return strconv.Itoa(int(gs.id))
 }
 
+func (gs *GameState) Checksum() int {
+	buf := bytes.Buffer{}
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(gs)
+	if err != nil {
+		panic(err)
+	}
+	gs.bytes = buf.Bytes()
+	//h := fnv.New32a()
+	//h.Write(gs.bytes)
+	//h.Write([]byte(gs.String()))
+	//return int(h.Sum32())
+	gsBytes := []byte(gs.String())
+	sum := 0
+	for i := 0; i < len(gsBytes); i++ {
+		sum += int(gsBytes[i])
+	}
+	return sum
+}
+
+func (gs *GameState) String() (str string) {
+	str = fmt.Sprintf("Time: %d GameTime %d \n", gs.Time, gs.GameTime)
+	for i := 0; i < len(gs.CharState); i++ {
+		for j := 0; j < len(gs.CharState[i]); j++ {
+			str += gs.CharState[i][j].String()
+			str += "\n"
+		}
+	}
+	return
+}
+
 type GameState struct {
+	bytes             []byte
 	id                int
 	saved             bool
 	rollback          RollbackState
 	frame             int32
 	randseed          int32
-	time              int32
-	gameTime          int32
+	Time              int32
+	GameTime          int32
 	projectileState   [MaxSimul*2 + MaxAttachedChar][]ProjectileState
-	charState         [MaxSimul*2 + MaxAttachedChar][]CharState
+	CharState         [MaxSimul*2 + MaxAttachedChar][]CharState
 	explodsState      [MaxSimul*2 + MaxAttachedChar][]ExplodState
 	explDrawlist      [MaxSimul*2 + MaxAttachedChar][]int
 	topexplDrawlist   [MaxSimul*2 + MaxAttachedChar][]int
@@ -562,12 +620,12 @@ func (gs *GameState) Equal(other GameState) (equality bool) {
 		return false
 	}
 
-	if gs.time != other.time {
+	if gs.Time != other.Time {
 		fmt.Println("Error on time.")
 		return false
 	}
 
-	if gs.gameTime != other.gameTime {
+	if gs.GameTime != other.GameTime {
 		fmt.Println("Error on gameTime.")
 		return false
 	}
@@ -577,8 +635,8 @@ func (gs *GameState) Equal(other GameState) (equality bool) {
 
 func (gs *GameState) LoadState() {
 	sys.randseed = gs.randseed
-	sys.time = gs.time
-	sys.gameTime = gs.gameTime
+	sys.time = gs.Time
+	sys.gameTime = gs.GameTime
 	gs.loadCharData()
 	gs.loadExplodData()
 	sys.cam = gs.cam
@@ -612,7 +670,7 @@ func (gs *GameState) LoadState() {
 	sys.fadeouttime = gs.fadeouttime
 	sys.winskipped = gs.winskipped
 	sys.intro = gs.intro
-	sys.time = gs.time
+	sys.time = gs.Time
 	sys.nextCharId = gs.nextCharId
 
 	sys.scrrect = gs.scrrect
@@ -695,9 +753,16 @@ func (gs *GameState) LoadState() {
 	sys.match = gs.match
 	sys.round = gs.round
 
-	if sys.workingState != nil {
-		*sys.workingState = gs.workingStateState
+	// bug, if a prior state didn't have this
+	// Did the prior state actually have a working state
+	if gs.workingStateState.stateType != 0 && gs.workingStateState.moveType != 0 {
+		if sys.workingState != nil {
+			*sys.workingState = gs.workingStateState
+		} else {
+			sys.workingState = &gs.workingStateState
+		}
 	}
+
 	// else {
 	// 	sys.workingState = &gs.workingStateState
 	// }
@@ -710,8 +775,8 @@ func (gs *GameState) SaveState() {
 	gs.saved = true
 	gs.frame = sys.frameCounter
 	gs.randseed = sys.randseed
-	gs.time = sys.time
-	gs.gameTime = sys.gameTime
+	gs.Time = sys.time
+	gs.GameTime = sys.gameTime
 
 	//timeBefore := time.Now().UnixMilli()
 	gs.saveCharData()
@@ -763,7 +828,7 @@ func (gs *GameState) SaveState() {
 	gs.fadeouttime = sys.fadeouttime
 	gs.winskipped = sys.winskipped
 	gs.intro = sys.intro
-	gs.time = sys.time
+	gs.Time = sys.time
 	gs.nextCharId = sys.nextCharId
 
 	gs.scrrect = sys.scrrect
@@ -857,6 +922,7 @@ func (gs *GameState) SaveState() {
 	gs.match = sys.match
 	gs.round = sys.round
 
+	// bug, if a prior state didn't have this
 	if sys.workingState != nil {
 		gs.workingStateState = *sys.workingState
 	}
@@ -877,10 +943,10 @@ func (gs *GameState) savePalFX() {
 
 func (gs *GameState) saveCharData() {
 	for i := range sys.chars {
-		gs.charState[i] = make([]CharState, len(sys.chars[i]))
+		gs.CharState[i] = make([]CharState, len(sys.chars[i]))
 		for j, c := range sys.chars[i] {
 			//timeBefore := time.Now().UnixMilli()
-			gs.charState[i][j] = c.getCharState()
+			gs.CharState[i][j] = c.getCharState()
 			//timeAfter := time.Now().UnixMilli()
 			//fmt.Printf("Time to save character %s: %d ms\n", c.name, timeAfter-timeBefore)
 			//gs.charMap[gs.charState[i][j].id] = gs.charState[i][j]
@@ -957,11 +1023,11 @@ func (gs *GameState) loadPalFX() {
 
 func (gs *GameState) charsPersist() bool {
 	for i := 0; i < len(sys.chars); i++ {
-		if len(sys.chars[i]) != len(gs.charState[i]) {
+		if len(sys.chars[i]) != len(gs.CharState[i]) {
 			return false
 		}
 		for j := 0; j < len(sys.chars[i]); j++ {
-			if sys.chars[i][j].id != gs.charState[i][j].id {
+			if sys.chars[i][j].id != gs.CharState[i][j].id {
 				return false
 			}
 		}
@@ -974,7 +1040,7 @@ func (gs *GameState) loadCharData() {
 		//fmt.Println("Chars persist")
 		for i := range sys.chars {
 			for j, _ := range sys.chars[i] {
-				sys.chars[i][j].loadCharState(gs.charState[i][j])
+				sys.chars[i][j].loadCharState(gs.CharState[i][j])
 			}
 		}
 	} else {
@@ -992,12 +1058,12 @@ func (gs *GameState) loadCharData() {
 
 		for i := range sys.chars {
 			//fmt.Printf("len of chars %d len of charState %d\n", len(sys.chars[i]), len(gs.charState[i]))
-			if len(sys.chars[i]) < len(gs.charState[i]) {
-				for len(sys.chars[i]) < len(gs.charState[i]) {
+			if len(sys.chars[i]) < len(gs.CharState[i]) {
+				for len(sys.chars[i]) < len(gs.CharState[i]) {
 					sys.chars[i][0].newHelper()
 				}
-			} else if len(sys.chars[i]) > len(gs.charState[i]) {
-				for len(sys.chars[i]) > len(gs.charState[i]) {
+			} else if len(sys.chars[i]) > len(gs.CharState[i]) {
+				for len(sys.chars[i]) > len(gs.CharState[i]) {
 					sys.chars[i] = sys.chars[i][:len(sys.chars[i])-1]
 				}
 			}
@@ -1005,7 +1071,7 @@ func (gs *GameState) loadCharData() {
 
 		for i := range sys.chars {
 			for j, _ := range sys.chars[i] {
-				sys.chars[i][j].loadCharState(gs.charState[i][j])
+				sys.chars[i][j].loadCharState(gs.CharState[i][j])
 			}
 		}
 	}
