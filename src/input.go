@@ -1811,6 +1811,29 @@ func (c *Command) Clear() {
 		c.held[i] = false
 	}
 }
+
+func (c *Command) fall(cbuf *CommandBuffer, ai bool, holdTemp *[CK_Last + 1]bool, anyHeld bool) bool {
+	if c.cmdi == 0 {
+		return anyHeld
+	}
+	if !ai && (c.cmd[c.cmdi].greater || c.cmd[c.cmdi].direction) {
+		var t int32
+		if c.cmd[c.cmdi].greater {
+			t = cbuf.LastChangeTime()
+		} else {
+			t = cbuf.LastDirectionTime()
+		}
+		for _, k := range c.cmd[c.cmdi-1].key {
+			if Abs(cbuf.State2(k)) == t {
+				return true
+			}
+		}
+		c.Clear()
+		return c.bufTest(cbuf, ai, holdTemp)
+	}
+	return true
+
+}
 func (c *Command) bufTest(cbuf *CommandBuffer, ai bool, holdTemp *[CK_Last + 1]bool) bool {
 	anyHeld, notHeld := false, 0
 	if len(c.hold) > 0 && !ai {
@@ -1868,27 +1891,6 @@ func (c *Command) bufTest(cbuf *CommandBuffer, ai bool, holdTemp *[CK_Last + 1]b
 		c.cmdi++
 		return true
 	}
-	fail := func() bool {
-		if c.cmdi == 0 {
-			return anyHeld
-		}
-		if !ai && (c.cmd[c.cmdi].greater || c.cmd[c.cmdi].direction) {
-			var t int32
-			if c.cmd[c.cmdi].greater {
-				t = cbuf.LastChangeTime()
-			} else {
-				t = cbuf.LastDirectionTime()
-			}
-			for _, k := range c.cmd[c.cmdi-1].key {
-				if Abs(cbuf.State2(k)) == t {
-					return true
-				}
-			}
-			c.Clear()
-			return c.bufTest(cbuf, ai, holdTemp)
-		}
-		return true
-	}
 	if c.tamei != c.cmdi {
 		if c.cmd[c.cmdi].tametime > 1 {
 			for _, k := range c.cmd[c.cmdi].key {
@@ -1913,7 +1915,7 @@ func (c *Command) bufTest(cbuf *CommandBuffer, ai bool, holdTemp *[CK_Last + 1]b
 			if cbuf.B < 0 && cbuf.D < 0 && cbuf.F < 0 && cbuf.U < 0 {
 				c.tamei = c.cmdi
 			} else {
-				return fail()
+				return c.fall(cbuf, ai, holdTemp, anyHeld)
 			}
 		}
 	}
@@ -1923,13 +1925,13 @@ func (c *Command) bufTest(cbuf *CommandBuffer, ai bool, holdTemp *[CK_Last + 1]b
 		if c.cmd[c.cmdi].slash {
 			foo = foo || n > 0
 		} else if n < 1 || 7 < n {
-			return fail()
+			return c.fall(cbuf, ai, holdTemp, anyHeld)
 		} else {
 			foo = foo || n == 1
 		}
 	}
 	if !foo {
-		return fail()
+		return c.fall(cbuf, ai, holdTemp, anyHeld)
 	}
 	c.cmdi++
 	if c.cmdi < len(c.cmd) && c.cmd[c.cmdi-1].IsDToB(c.cmd[c.cmdi]) {

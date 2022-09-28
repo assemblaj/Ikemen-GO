@@ -2073,6 +2073,17 @@ type StateBlock struct {
 	ctrls               []StateController
 }
 
+func (b *StateBlock) clone() (result StateBlock) {
+	result = *b
+	copy(result.trigger, b.trigger)
+	if b.elseBlock != nil {
+		eb := b.elseBlock.clone()
+		result.elseBlock = &eb
+	}
+	copy(result.ctrls, b.ctrls)
+	return result
+}
+
 func newStateBlock() *StateBlock {
 	return &StateBlock{persistent: 1, persistentIndex: -1, ignorehitpause: -2}
 }
@@ -7986,6 +7997,13 @@ type StateBytecode struct {
 	block     StateBlock
 	ctrlsps   []int32
 	numVars   int32
+}
+
+func (sb *StateBytecode) clone() (result StateBytecode) {
+	result = *sb
+	copy(result.ctrlsps, sb.ctrlsps)
+	result.block = sb.block.clone()
+	return result
 }
 
 // StateDef bytecode creation function

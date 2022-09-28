@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"hash/fnv"
 	"strconv"
 	"time"
 )
@@ -23,7 +24,6 @@ func init() {
 	for i := 0; i < 8; i++ {
 		sys.gameStates[i] = *NewGameState()
 	}
-
 	gob.Register(GameState{})
 	gob.Register(CharState{})
 }
@@ -138,16 +138,12 @@ func NewReplayState() ReplayState {
 	}
 }
 
-type LifebarState struct {
-	combo     [2]int32
-	fakecombo [2]int32
-}
-
 type CharState struct {
-	palFX          PalFX
-	ChildrenState  []CharState
-	EnemynearState [2][]CharState
-
+	palFX                 PalFX
+	ChildrenState         []CharState
+	EnemynearState        [2][]CharState
+	curFramePtr           *AnimFrame
+	curFrame              AnimFrame
 	animState             AnimationState
 	cmd                   []CommandList
 	ss                    StateState
@@ -232,7 +228,7 @@ type CharState struct {
 }
 
 func (cs *CharState) String() string {
-	return fmt.Sprintf(`Char %s 
+	str := fmt.Sprintf(`Char %s 
 	RedLife             :%d 
 	Juggle              :%d 
 	Life                :%d 
@@ -246,6 +242,33 @@ func (cs *CharState) String() string {
 	Facing               :%f`,
 		cs.Name, cs.RedLife, cs.Juggle, cs.Life, cs.Key, cs.Localcoord,
 		cs.Localscl, cs.Pos, cs.DrawPos, cs.OldPos, cs.Vel, cs.Facing)
+	str += fmt.Sprintf("\nChildren of %s:", cs.Name)
+	if len(cs.ChildrenState) == 0 {
+		str += "None\n"
+	} else {
+		str += "{ \n"
+		for i := 0; i < len(cs.ChildrenState); i++ {
+			str += cs.ChildrenState[i].String()
+			str += "\n"
+		}
+		str += "}\n"
+
+	}
+	str += fmt.Sprintf("EnemyNear of %s:", cs.Name)
+	if len(cs.EnemynearState[0]) == 0 && len(cs.EnemynearState[1]) == 0 {
+		str += "None\n"
+	} else {
+		str += "{ \n "
+		for i := 0; i < len(cs.EnemynearState); i++ {
+			for j := 0; j < len(cs.EnemynearState[i]); j++ {
+				str += cs.EnemynearState[i][j].String()
+				str += "\n"
+			}
+		}
+		str += "}\n"
+
+	}
+	return str
 }
 
 func (cs *CharState) findChar() *Char {
@@ -449,16 +472,9 @@ func (gs *GameState) Checksum() int {
 		panic(err)
 	}
 	gs.bytes = buf.Bytes()
-	//h := fnv.New32a()
-	//h.Write(gs.bytes)
-	//h.Write([]byte(gs.String()))
-	//return int(h.Sum32())
-	gsBytes := []byte(gs.String())
-	sum := 0
-	for i := 0; i < len(gsBytes); i++ {
-		sum += int(gsBytes[i])
-	}
-	return sum
+	h := fnv.New32a()
+	h.Write(gs.bytes)
+	return int(h.Sum32())
 }
 
 func (gs *GameState) String() (str string) {
@@ -472,6 +488,13 @@ func (gs *GameState) String() (str string) {
 	return
 }
 
+type CharListState struct {
+	runOrder, drawOrder       []CharState
+	runOrderPtr, drawOrderPtr []*Char
+	idMap                     map[int32]CharState
+	idMapPtr                  map[int32]*Char
+}
+
 type GameState struct {
 	bytes             []byte
 	id                int
@@ -483,6 +506,7 @@ type GameState struct {
 	GameTime          int32
 	projectileState   [MaxSimul*2 + MaxAttachedChar][]ProjectileState
 	CharState         [MaxSimul*2 + MaxAttachedChar][]CharState
+	charPtr           [MaxSimul*2 + MaxAttachedChar][]*Char
 	explodsState      [MaxSimul*2 + MaxAttachedChar][]ExplodState
 	explDrawlist      [MaxSimul*2 + MaxAttachedChar][]int
 	topexplDrawlist   [MaxSimul*2 + MaxAttachedChar][]int
@@ -490,9 +514,9 @@ type GameState struct {
 	aiInput           [MaxSimul*2 + MaxAttachedChar]AiInput
 	inputRemap        [MaxSimul*2 + MaxAttachedChar]int
 	autoguard         [MaxSimul*2 + MaxAttachedChar]bool
-
-	charMap map[int32]CharState
-	projMap map[int32]ProjectileState
+	charList          CharListState
+	charMap           map[int32]CharState
+	projMap           map[int32]ProjectileState
 
 	com                [MaxSimul*2 + MaxAttachedChar]float32
 	cam                Camera
@@ -602,7 +626,9 @@ type GameState struct {
 	lifeShare               [2]bool
 	keyConfig               []KeyConfig
 	joystickConfig          []KeyConfig
-	lifebar                 LifebarState
+	lifebar                 Lifebar
+	redrawWait              struct{ nextTime, lastDraw time.Time }
+	cgi                     [MaxSimul*2 + MaxAttachedChar]CharGlobalInfo
 }
 
 func NewGameState() *GameState {
@@ -767,11 +793,27 @@ func (gs *GameState) LoadState() {
 	// 	sys.workingState = &gs.workingStateState
 	// }
 
-	copy(sys.keyConfig, gs.keyConfig)
-	copy(sys.joystickConfig, gs.joystickConfig)
+	// copy(sys.keyConfig, gs.keyConfig)
+	// copy(sys.joystickConfig, gs.joystickConfig)
+	sys.redrawWait = gs.redrawWait
+	sys.lifebar = gs.lifebar
+
+	for i := range sys.cgi {
+		for k, v := range gs.cgi[i].states {
+			sys.cgi[i].states[k] = v
+		}
+	}
 }
 
 func (gs *GameState) SaveState() {
+	gs.cgi = sys.cgi
+	for i := range sys.cgi {
+		gs.cgi[i].states = make(map[int32]StateBytecode)
+		for k, v := range gs.cgi[i].states {
+			gs.cgi[i].states[k] = v
+		}
+	}
+
 	gs.saved = true
 	gs.frame = sys.frameCounter
 	gs.randseed = sys.randseed
@@ -803,9 +845,15 @@ func (gs *GameState) SaveState() {
 	gs.envcol_time = sys.envcol_time
 	gs.specialFlag = sys.specialFlag
 	gs.envcol = sys.envcol
-	gs.bcStack = sys.bcStack
-	gs.bcVarStack = sys.bcVarStack
-	gs.bcVar = sys.bcVar
+	gs.bcStack = make([]BytecodeValue, len(sys.bcStack))
+	copy(gs.bcStack, sys.bcStack)
+
+	gs.bcVarStack = make([]BytecodeValue, len(sys.bcVarStack))
+	copy(gs.bcVarStack, sys.bcVarStack)
+
+	gs.bcVar = make([]BytecodeValue, len(sys.bcVar))
+	copy(gs.bcVar, sys.bcVar)
+
 	gs.stageState = sys.stage.getStageState()
 	gs.aiInput = sys.aiInput
 	gs.inputRemap = sys.inputRemap
@@ -927,13 +975,16 @@ func (gs *GameState) SaveState() {
 		gs.workingStateState = *sys.workingState
 	}
 
-	gs.keyConfig = make([]KeyConfig, len(sys.keyConfig))
-	copy(gs.keyConfig, sys.keyConfig)
+	// gs.keyConfig = make([]KeyConfig, len(sys.keyConfig))
+	// copy(gs.keyConfig, sys.keyConfig)
 
-	gs.joystickConfig = make([]KeyConfig, len(sys.joystickConfig))
-	copy(gs.joystickConfig, sys.joystickConfig)
+	// gs.joystickConfig = make([]KeyConfig, len(sys.joystickConfig))
+	// copy(gs.joystickConfig, sys.joystickConfig)
 	//timeAfter = time.Now().UnixMilli()
 	//fmt.Printf("Time to save The rest: %d\n", timeAfter-timeBefore)
+
+	gs.lifebar = sys.lifebar.clone()
+	gs.redrawWait = sys.redrawWait
 }
 
 func (gs *GameState) savePalFX() {
@@ -944,15 +995,16 @@ func (gs *GameState) savePalFX() {
 func (gs *GameState) saveCharData() {
 	for i := range sys.chars {
 		gs.CharState[i] = make([]CharState, len(sys.chars[i]))
+		gs.charPtr[i] = make([]*Char, len(sys.chars[i]))
 		for j, c := range sys.chars[i] {
 			//timeBefore := time.Now().UnixMilli()
 			gs.CharState[i][j] = c.getCharState()
+			gs.charPtr[i][j] = c
 			//timeAfter := time.Now().UnixMilli()
 			//fmt.Printf("Time to save character %s: %d ms\n", c.name, timeAfter-timeBefore)
 			//gs.charMap[gs.charState[i][j].id] = gs.charState[i][j]
 		}
 	}
-
 	if sys.workingChar != nil {
 		gs.workingCharState = sys.workingChar.getCharState()
 	}
@@ -1036,6 +1088,11 @@ func (gs *GameState) charsPersist() bool {
 }
 
 func (gs *GameState) loadCharData() {
+	for i := 0; i < len(sys.chars); i++ {
+		sys.chars[i] = make([]*Char, len(gs.charPtr[i]))
+		copy(sys.chars[i], gs.charPtr[i])
+	}
+
 	if gs.charsPersist() {
 		//fmt.Println("Chars persist")
 		for i := range sys.chars {
@@ -1122,12 +1179,12 @@ func (gs *GameState) loadExplodData() {
 		copy(sys.explDrawlist[i], gs.explDrawlist[i])
 	}
 
-	for i := range sys.topexplDrawlist {
+	for i := range gs.topexplDrawlist {
 		sys.topexplDrawlist[i] = make([]int, len(gs.topexplDrawlist[i]))
 		copy(sys.topexplDrawlist[i], gs.topexplDrawlist[i])
 	}
 
-	for i := range sys.underexplDrawlist {
+	for i := range gs.underexplDrawlist {
 		sys.underexplDrawlist[i] = make([]int, len(gs.underexplDrawlist[i]))
 		copy(sys.underexplDrawlist[i], gs.underexplDrawlist[i])
 	}

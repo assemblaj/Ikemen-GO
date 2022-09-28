@@ -1751,6 +1751,16 @@ type StateState struct {
 	sb              StateBytecode
 }
 
+func (ss *StateState) clone() (result StateState) {
+	result = *ss
+	copy(result.ps, ss.ps)
+	for i := 0; i < len(ss.wakegawakaranai); i++ {
+		copy(result.wakegawakaranai[i], ss.wakegawakaranai[i])
+	}
+	result.sb = ss.sb.clone()
+	return result
+}
+
 func (ss *StateState) clear() {
 	ss.stateType, ss.moveType, ss.physics = ST_S, MT_I, ST_N
 	ss.ps = nil
@@ -1972,15 +1982,26 @@ func (c *Char) getCharState() CharState {
 	}
 	var animState AnimationState
 	if c.anim != nil {
-		c.anim.getAnimationState()
+		animState = c.anim.getAnimationState()
+	}
+	var curFrame AnimFrame
+	if c.curFrame != nil {
+		curFrame = *c.curFrame
+		curFrame.Ex = make([][]float32, len(c.curFrame.Ex))
+		for i := 0; i < len(c.curFrame.Ex); i++ {
+			curFrame.Ex[i] = make([]float32, len(curFrame.Ex[i]))
+			copy(curFrame.Ex[i], c.curFrame.Ex[i])
+		}
 	}
 
 	return CharState{
 		ChildrenState:         c.getChildrenState(),
 		EnemynearState:        c.getEnemyNearState(),
 		animState:             animState,
+		curFrame:              curFrame,
+		curFramePtr:           c.curFrame,
 		cmd:                   commandList,
-		ss:                    c.ss,
+		ss:                    c.ss.clone(),
 		hitdef:                c.hitdef,
 		RedLife:               c.redLife,
 		Juggle:                c.juggle,
@@ -2151,7 +2172,18 @@ func (c *Char) loadCharState(cs CharState) {
 		c.anim.loadAnimationState(cs.animState)
 	}
 
-	c.ss = cs.ss
+	// created bug where characters can walk through other characterss?
+
+	if cs.curFramePtr != nil {
+		c.curFrame = cs.curFramePtr
+		// *c.curFrame = cs.curFrame
+		// c.curFrame.Ex = make([][]float32, len(cs.curFrame.Ex))
+		// for i := 0; i < len(cs.curFrame.Ex); i++ {
+		// 	copy(c.curFrame.Ex[i], cs.curFrame.Ex[i])
+		// }
+	}
+
+	c.ss = cs.ss.clone()
 
 	if len(c.cmd) == len(cs.cmd) {
 		for i := 0; i < len(c.cmd); i++ {
@@ -6630,11 +6662,6 @@ func (cl *CharList) delete(dc *Char) {
 func (cl *CharList) action(ib []InputBits, x float32, cvmin, cvmax,
 	highest, lowest, leftest, rightest *float32) {
 	for i, p := range sys.chars {
-		if i < len(ib) {
-			//fmt.Println(ib[i])
-		} else {
-			continue
-		}
 		if len(p) > 0 {
 			r := p[0]
 			if (r.ctrlOver() && !r.sf(CSF_postroundinput)) || r.sf(CSF_noinput) ||

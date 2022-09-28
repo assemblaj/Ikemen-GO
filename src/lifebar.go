@@ -2904,6 +2904,46 @@ type Lifebar struct {
 	textsprite []*TextSprite
 }
 
+func (l *Lifebar) clone() (result Lifebar) {
+	result = *l
+	for i := range result.order {
+		result.order[i] = make([]int, len(l.order[i]))
+		copy(result.order[i], l.order[i])
+	}
+
+	for i := range result.hb {
+		result.hb[i] = make([]*HealthBar, len(l.hb[i]))
+		copy(result.hb[i], l.hb[i])
+	}
+
+	for i := range result.pb {
+		result.pb[i] = make([]*PowerBar, len(l.pb[i]))
+		copy(result.pb[i], l.pb[i])
+	}
+
+	for i := range result.gb {
+		result.gb[i] = make([]*GuardBar, len(l.gb[i]))
+		copy(result.gb[i], l.gb[i])
+	}
+
+	for i := range result.sb {
+		result.sb[i] = make([]*StunBar, len(l.sb[i]))
+		copy(result.sb[i], l.sb[i])
+	}
+
+	for i := range result.fa {
+		result.fa[i] = make([]*LifeBarFace, len(l.fa[i]))
+		copy(result.fa[i], l.fa[i])
+	}
+
+	for i := range result.nm {
+		result.nm[i] = make([]*LifeBarName, len(l.nm[i]))
+		copy(result.nm[i], l.nm[i])
+	}
+
+	return
+}
+
 func loadLifebar(deffile string) (*Lifebar, error) {
 	str, err := LoadText(deffile)
 	if err != nil {

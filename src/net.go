@@ -22,6 +22,7 @@ type RollbackSession struct {
 	syncProgress int
 	synchronized bool
 	syncTest     bool
+	run          int
 }
 
 func (r *RollbackSession) Close() {
@@ -63,30 +64,20 @@ func (g *RollbackSession) AdvanceFrame(flags int) {
 	inputs, result := g.backend.SyncInput(&discconectFlags)
 	if result == nil {
 		fmt.Println("Advancing frame from within callback.")
-		if sys.roundState() == 0 || sys.roundState() == 1 {
-			sys.currentFight.initChars()
-		}
-		//var finish bool
 		input := decodeInputs(inputs)
-		fmt.Println(input)
+		fmt.Printf("Inputs: %v\n", input)
+
 		sys.step = false
 		sys.runShortcutScripts()
 		// If next round
 		sys.runNextRound()
+
 		sys.updateStage()
 		sys.action(input)
+
 		sys.handleFlags()
 		sys.updateEvents()
 
-		// Break if finished
-		//finish = sys.currentFight.fin && (!sys.postMatchFlg || len(sys.commonLua) == 0)
-		//fmt.Println(finish)
-		// Update system; break if update returns false (game ended)
-		//if !s.update() {
-		//	return false
-		//}
-
-		// If end match selected from menu/end of attract mode match/etc
 		if sys.endMatch {
 			sys.esc = true
 		} else if sys.esc {
@@ -94,7 +85,6 @@ func (g *RollbackSession) AdvanceFrame(flags int) {
 		}
 
 		sys.updateCamera()
-
 		err := g.backend.AdvanceFrame()
 		if err != nil {
 			panic(err)

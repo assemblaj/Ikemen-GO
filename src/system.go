@@ -2085,57 +2085,56 @@ func writeI32(i32 int32) []byte {
 }
 
 func getInputs(player int) []byte {
-	for _, p := range sys.chars {
-		for _, ch := range p {
-			//fmt.Printf("ch.name %s ch.playerNo %d player %d\n", ch.name, ch.playerNo, player)
-			if ch.playerNo != player-1 {
-				continue
-			}
-			ib := ch.inputFlag
+	var ib InputBits
+	ib.SetInput(player)
+	return writeI32(int32(ib))
+}
 
-			var L, R, U, D, a, b, c, x, y, z, s, d, w, m bool
-			if ch.key < len(sys.inputRemap) {
-				ib := ch.inputFlag
-				in := sys.inputRemap[ch.key]
-				if in < len(sys.keyConfig) {
-					joy := sys.keyConfig[in].Joy
-					if joy == -1 {
-						L = sys.keyConfig[in].L() || ib&IB_PL != 0
-						R = sys.keyConfig[in].R() || ib&IB_PR != 0
-						U = sys.keyConfig[in].U() || ib&IB_PU != 0
-						D = sys.keyConfig[in].D() || ib&IB_PD != 0
-						a = sys.keyConfig[in].a() || ib&IB_A != 0
-						b = sys.keyConfig[in].b() || ib&IB_B != 0
-						c = sys.keyConfig[in].c() || ib&IB_C != 0
-						x = sys.keyConfig[in].x() || ib&IB_X != 0
-						y = sys.keyConfig[in].y() || ib&IB_Y != 0
-						z = sys.keyConfig[in].z() || ib&IB_Z != 0
-						s = sys.keyConfig[in].s() || ib&IB_S != 0
-						d = sys.keyConfig[in].d() || ib&IB_D != 0
-						w = sys.keyConfig[in].w() || ib&IB_W != 0
-						m = sys.keyConfig[in].m() || ib&IB_M != 0
-					}
-				}
-				var B, F bool
-				if ch.facing < 0 {
-					B, F = R, L
-				} else {
-					B, F = L, R
-				}
-				cb := CommandBuffer{}
-				cb.Input(B, D, F, U, a, b, c, x, y, z, s, d, w, m)
+func getAiInput(playerNum int) []byte {
+	for i := 0; i < len(sys.chars); i++ {
+		p := sys.chars[i][0]
+		if p.key != playerNum {
+			continue
+		}
+		aiLevel := sys.com[i]
+		i := p.key
+		ib := p.inputFlag
+		facing := p.facing
+		if i < 0 && ^i < len(sys.aiInput) {
+			sys.aiInput[^i].Update(aiLevel) // 乱数を使うので同期がずれないようここで / Here we use random numbers so we can not get out of sync
+		}
+		var L, R, U, D, a, b, c, x, y, z, s, d, w, m bool
+		if i < 0 {
+			i = ^i
+			if i < len(sys.aiInput) {
+				L = sys.aiInput[i].L() || ib&IB_PL != 0
+				R = sys.aiInput[i].R() || ib&IB_PR != 0
+				U = sys.aiInput[i].U() || ib&IB_PU != 0
+				D = sys.aiInput[i].D() || ib&IB_PD != 0
+				a = sys.aiInput[i].a() || ib&IB_A != 0
+				b = sys.aiInput[i].b() || ib&IB_B != 0
+				c = sys.aiInput[i].c() || ib&IB_C != 0
+				x = sys.aiInput[i].x() || ib&IB_X != 0
+				y = sys.aiInput[i].y() || ib&IB_Y != 0
+				z = sys.aiInput[i].z() || ib&IB_Z != 0
+				s = sys.aiInput[i].s() || ib&IB_S != 0
+				d = sys.aiInput[i].d() || ib&IB_D != 0
+				w = sys.aiInput[i].w() || ib&IB_W != 0
+				m = sys.aiInput[i].m() || ib&IB_M != 0
 			}
-			//ch.cmd[0].Input(ch.key, int32(ch.facing), sys.com[i], ch.inputFlag)
+			var B, F bool
+			if facing < 0 {
+				B, F = R, L
+			} else {
+				B, F = L, R
+			}
+			cb := CommandBuffer{}
+			cb.Input(B, D, F, U, a, b, c, x, y, z, s, d, w, m)
 			ib.SetInput(0)
 			return writeI32(int32(ib))
-
 		}
 	}
 	return []byte{}
-}
-
-func getInput() {
-
 }
 
 func (s *System) runShortcutScripts() {
@@ -2271,12 +2270,14 @@ func (s *System) runFrame() bool {
 	var buffer []byte
 	var result error
 	if s.rollbackNetwork.syncTest {
+		buffer = getInputs(0)
+		fmt.Printf("Buffer for input 1: %v", buffer)
+		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
 		buffer = getInputs(1)
-		s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
-		buffer = getInputs(2)
-		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(2), buffer, len(buffer))
+		fmt.Printf("Buffer for input 2: %v", buffer)
+		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
 	} else {
-		buffer = getInputs(sys.rollbackNetwork.playerNo)
+		buffer = getInputs(0)
 		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(sys.rollbackNetwork.playerNo), buffer, len(buffer))
 	}
 
@@ -2285,7 +2286,8 @@ func (s *System) runFrame() bool {
 		var values [][]byte
 		disconnectFlags := 0
 		values, result = s.rollbackNetwork.backend.SyncInput(&disconnectFlags)
-		//fmt.Printf("values %v\n", values)
+		fmt.Printf("values from ggpo-go %v\n", values)
+		//fmt.Println(values)
 		inputs := decodeInputs(values)
 		fmt.Println(inputs)
 		if result == nil {
