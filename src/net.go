@@ -52,6 +52,9 @@ func (g *RollbackSession) LoadGameState(stateID int) {
 	fmt.Printf("Loaded state for stateID: %d\n", stateID)
 	fmt.Println(g.saveStates[stateID])
 
+	checksum := g.saveStates[stateID].Checksum()
+	fmt.Printf("checksum: %d\n", checksum)
+
 	g.saveStates[stateID].LoadState()
 	//sys.gameStatePool <- g.saveStates[stateID]
 }

@@ -2008,29 +2008,29 @@ func (c *Char) getCharState() CharState {
 		Life:                  c.life,
 		Name:                  c.name,
 		Key:                   c.key,
-		id:                    c.id,
-		helperId:              c.helperId,
-		helperIndex:           c.helperIndex,
-		parentIndex:           c.parentIndex,
-		playerNo:              c.playerNo,
-		teamside:              c.teamside,
+		Id:                    c.id,
+		HelperId:              c.helperId,
+		HelperIndex:           c.helperIndex,
+		ParentIndex:           c.parentIndex,
+		PlayerNo:              c.playerNo,
+		Teamside:              c.teamside,
 		player:                c.player,
-		animPN:                c.animPN,
-		animNo:                c.animNo,
-		lifeMax:               c.lifeMax,
-		powerMax:              c.powerMax,
-		dizzyPoints:           c.dizzyPoints,
+		AnimPN:                c.animPN,
+		AnimNo:                c.animNo,
+		LifeMax:               c.lifeMax,
+		PowerMax:              c.powerMax,
+		DizzyPoints:           c.dizzyPoints,
 		dizzyPointsMax:        c.dizzyPointsMax,
-		guardPoints:           c.guardPoints,
+		GuardPoints:           c.guardPoints,
 		guardPointsMax:        c.guardPointsMax,
-		fallTime:              c.fallTime,
+		FallTime:              c.fallTime,
 		Localcoord:            c.localcoord,
 		Localscl:              c.localscl,
-		clsnScale:             c.clsnScale,
-		hoIdx:                 c.hoIdx,
-		mctime:                c.mctime,
-		targets:               targets,
-		targetsOfHitdef:       targetsOfHitdef,
+		ClsnScale:             c.clsnScale,
+		HoIdx:                 c.hoIdx,
+		Mctime:                c.mctime,
+		Targets:               targets,
+		TargetsOfHitdef:       targetsOfHitdef,
 		Pos:                   c.pos,
 		DrawPos:               c.drawPos,
 		OldPos:                c.oldPos,
@@ -2043,21 +2043,21 @@ func (c *Char) getCharState() CharState {
 		inguarddist:           c.inguarddist,
 		pushed:                c.pushed,
 		hitdefContact:         c.hitdefContact,
-		atktmp:                c.atktmp,
-		hittmp:                c.hittmp,
-		acttmp:                c.acttmp,
-		minus:                 c.minus,
+		Atktmp:                c.atktmp,
+		Hittmp:                c.hittmp,
+		Acttmp:                c.acttmp,
+		Minus:                 c.minus,
 		platformPosY:          c.platformPosY,
-		groundAngle:           c.groundAngle,
+		GroundAngle:           c.groundAngle,
 		ownpal:                c.ownpal,
 		winquote:              c.winquote,
 		memberNo:              c.memberNo,
 		selectNo:              c.selectNo,
-		comboExtraFrameWindow: c.comboExtraFrameWindow,
-		inheritJuggle:         c.inheritJuggle,
+		ComboExtraFrameWindow: c.comboExtraFrameWindow,
+		InheritJuggle:         c.inheritJuggle,
 		immortal:              c.immortal,
 		kovelocity:            c.kovelocity,
-		preserve:              c.preserve,
+		Preserve:              c.preserve,
 		inputFlag:             c.inputFlag,
 		pauseBool:             c.pauseBool,
 		keyctrl:               c.keyctrl,
@@ -2067,9 +2067,9 @@ func (c *Char) getCharState() CharState {
 		hitby:                 c.hitby,
 		ho:                    c.ho,
 		mctype:                c.mctype,
-		ivar:                  c.ivar,
-		fvar:                  c.fvar,
-		offset:                c.offset,
+		Ivar:                  c.ivar,
+		Fvar:                  c.fvar,
+		Offset:                c.offset,
 		mapArray:              c.mapArray,
 		mapDefault:            c.mapDefault,
 		remapSpr:              c.remapSpr,
@@ -2123,24 +2123,75 @@ func (c *Char) enemynearEqual(cs [2][]CharState) bool {
 	}
 	for i := 0; i < len(c.enemynear); i++ {
 		for j := 0; j < len(c.enemynear[i]); j++ {
-			if c.enemynear[i][j].id != cs[i][j].id {
+			if c.enemynear[i][j].id != cs[i][j].Id {
 				return false
 			}
 		}
 	}
 	return true
 }
-func (c *Char) loadCharState(cs CharState) {
 
-	// load children
+func (c *Char) childrenStateEqual(cs []CharState) bool {
+	if len(cs) != len(c.children) {
+		return false
+	}
+	for i := 0; i < len(c.children); i++ {
+		if c.children[i] != nil && c.children[i].id != cs[i].Id {
+			return false
+		}
+	}
+	return true
+
+}
+
+func (c *Char) loadCharState(cs CharState) {
+	c.children = make([]*Char, len(cs.ChildrenState))
 	for i := range cs.ChildrenState {
-		c.children = make([]*Char, len(cs.ChildrenState))
 		ch := cs.ChildrenState[i].findChar()
 		if ch != nil {
 			c.children[i] = ch
 			c.children[i].loadCharState(cs.ChildrenState[i])
 		}
 	}
+
+	// Restore Children State
+	if c.childrenStateEqual(cs.ChildrenState) {
+		for i := range cs.ChildrenState {
+			ch := cs.ChildrenState[i].findChar()
+			if ch != nil {
+				c.children[i] = ch
+				c.children[i].loadCharState(cs.ChildrenState[i])
+			}
+		}
+	} else if len(c.children) < len(cs.ChildrenState) {
+		c.children = make([]*Char, len(cs.ChildrenState))
+		for i := range cs.ChildrenState {
+			ch := cs.ChildrenState[i].findChar()
+			if ch != nil {
+				c.children[i] = ch
+				c.children[i].loadCharState(cs.ChildrenState[i])
+			}
+		}
+	} else {
+		more := len(c.children) - len(cs.ChildrenState)
+		c.children = c.children[:len(c.children)-more]
+		for i := range cs.ChildrenState {
+			ch := cs.ChildrenState[i].findChar()
+			if ch != nil {
+				c.children[i] = ch
+				c.children[i].loadCharState(cs.ChildrenState[i])
+			}
+		}
+	}
+
+	// for i := range cs.ChildrenState {
+	// 	c.children = make([]*Char, len(cs.ChildrenState))
+	// 	ch := cs.ChildrenState[i].findChar()
+	// 	if ch != nil {
+	// 		c.children[i] = ch
+	// 		c.children[i].loadCharState(cs.ChildrenState[i])
+	// 	}
+	// }
 
 	if c.enemynearEqual(cs.EnemynearState) {
 		// load enemeynear
@@ -2199,29 +2250,29 @@ func (c *Char) loadCharState(cs CharState) {
 	c.life = cs.Life
 	c.name = cs.Name
 	c.key = cs.Key
-	c.id = cs.id
-	c.helperId = cs.helperId
-	c.helperIndex = cs.helperIndex
-	c.parentIndex = cs.parentIndex
-	c.playerNo = cs.playerNo
-	c.teamside = cs.teamside
+	c.id = cs.Id
+	c.helperId = cs.HelperId
+	c.helperIndex = cs.HelperIndex
+	c.parentIndex = cs.ParentIndex
+	c.playerNo = cs.PlayerNo
+	c.teamside = cs.Teamside
 	c.player = cs.player
-	c.animPN = cs.animPN
-	c.animNo = cs.animNo
-	c.lifeMax = cs.lifeMax
-	c.powerMax = cs.powerMax
-	c.dizzyPoints = cs.dizzyPoints
+	c.animPN = cs.AnimPN
+	c.animNo = cs.AnimNo
+	c.lifeMax = cs.LifeMax
+	c.powerMax = cs.PowerMax
+	c.dizzyPoints = cs.DizzyPoints
 	c.dizzyPointsMax = cs.dizzyPointsMax
-	c.guardPoints = cs.guardPoints
+	c.guardPoints = cs.GuardPoints
 	c.guardPointsMax = cs.guardPointsMax
-	c.fallTime = cs.fallTime
+	c.fallTime = cs.FallTime
 	c.localcoord = cs.Localcoord
 	c.localscl = cs.Localscl
-	c.clsnScale = cs.clsnScale
-	c.hoIdx = cs.hoIdx
-	c.mctime = cs.mctime
-	c.targets = cs.targets
-	c.targetsOfHitdef = cs.targetsOfHitdef
+	c.clsnScale = cs.ClsnScale
+	c.hoIdx = cs.HoIdx
+	c.mctime = cs.Mctime
+	c.targets = cs.Targets
+	c.targetsOfHitdef = cs.TargetsOfHitdef
 	c.pos = cs.Pos
 	c.drawPos = cs.DrawPos
 	c.oldPos = cs.OldPos
@@ -2234,21 +2285,21 @@ func (c *Char) loadCharState(cs CharState) {
 	c.inguarddist = cs.inguarddist
 	c.pushed = cs.pushed
 	c.hitdefContact = cs.hitdefContact
-	c.atktmp = cs.atktmp
-	c.hittmp = cs.hittmp
-	c.acttmp = cs.acttmp
-	c.minus = cs.minus
+	c.atktmp = cs.Atktmp
+	c.hittmp = cs.Hittmp
+	c.acttmp = cs.Acttmp
+	c.minus = cs.Minus
 	c.platformPosY = cs.platformPosY
-	c.groundAngle = cs.groundAngle
+	c.groundAngle = cs.GroundAngle
 	c.ownpal = cs.ownpal
 	c.winquote = cs.winquote
 	c.memberNo = cs.memberNo
 	c.selectNo = cs.selectNo
-	c.comboExtraFrameWindow = cs.comboExtraFrameWindow
-	c.inheritJuggle = cs.inheritJuggle
+	c.comboExtraFrameWindow = cs.ComboExtraFrameWindow
+	c.inheritJuggle = cs.InheritJuggle
 	c.immortal = cs.immortal
 	c.kovelocity = cs.kovelocity
-	c.preserve = cs.preserve
+	c.preserve = cs.Preserve
 	c.inputFlag = cs.inputFlag
 	c.pauseBool = cs.pauseBool
 	c.airJumpCount = cs.csv.airJumpCount
@@ -2292,9 +2343,9 @@ func (c *Char) loadCharState(cs CharState) {
 	c.hitby = cs.hitby
 	c.ho = cs.ho
 	c.mctype = cs.mctype
-	c.ivar = cs.ivar
-	c.fvar = cs.fvar
-	c.offset = cs.offset
+	c.ivar = cs.Ivar
+	c.fvar = cs.Fvar
+	c.offset = cs.Offset
 	c.mapArray = cs.mapArray
 	c.mapDefault = cs.mapDefault
 	c.remapSpr = cs.remapSpr

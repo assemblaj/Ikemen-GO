@@ -153,29 +153,29 @@ type CharState struct {
 	Life                  int32
 	Name                  string
 	Key                   int
-	id                    int32
-	helperId              int32
-	helperIndex           int32
-	parentIndex           int32
-	playerNo              int
-	teamside              int
+	Id                    int32
+	HelperId              int32
+	HelperIndex           int32
+	ParentIndex           int32
+	PlayerNo              int
+	Teamside              int
 	player                bool
-	animPN                int
-	animNo                int32
-	lifeMax               int32
-	powerMax              int32
-	dizzyPoints           int32
+	AnimPN                int
+	AnimNo                int32
+	LifeMax               int32
+	PowerMax              int32
+	DizzyPoints           int32
 	dizzyPointsMax        int32
-	guardPoints           int32
+	GuardPoints           int32
 	guardPointsMax        int32
-	fallTime              int32
+	FallTime              int32
 	Localcoord            float32
 	Localscl              float32
-	clsnScale             [2]float32
-	hoIdx                 int
-	mctime                int32
-	targets               []int32
-	targetsOfHitdef       []int32
+	ClsnScale             [2]float32
+	HoIdx                 int
+	Mctime                int32
+	Targets               []int32
+	TargetsOfHitdef       []int32
 	Pos                   [3]float32
 	DrawPos               [3]float32
 	OldPos                [3]float32
@@ -189,21 +189,21 @@ type CharState struct {
 	inguarddist           bool
 	pushed                bool
 	hitdefContact         bool
-	atktmp                int8
-	hittmp                int8
-	acttmp                int8
-	minus                 int8
+	Atktmp                int8
+	Hittmp                int8
+	Acttmp                int8
+	Minus                 int8
 	platformPosY          float32
-	groundAngle           float32
+	GroundAngle           float32
 	ownpal                bool
 	winquote              int32
 	memberNo              int
 	selectNo              int
-	comboExtraFrameWindow int32
-	inheritJuggle         int32
+	ComboExtraFrameWindow int32
+	InheritJuggle         int32
 	immortal              bool
 	kovelocity            bool
-	preserve              int32
+	Preserve              int32
 	inputFlag             InputBits
 	pauseBool             bool
 
@@ -214,9 +214,9 @@ type CharState struct {
 	hitby           [2]HitBy
 	ho              [8]HitOverride
 	mctype          MoveContact
-	ivar            [NumVar + NumSysVar]int32
-	fvar            [NumFvar + NumSysFvar]float32
-	offset          [2]float32
+	Ivar            [NumVar + NumSysVar]int32
+	Fvar            [NumFvar + NumSysFvar]float32
+	Offset          [2]float32
 	mapArray        map[string]float32
 	mapDefault      map[string]float32
 	remapSpr        RemapPreset
@@ -239,9 +239,43 @@ func (cs *CharState) String() string {
 	DrawPos             :%v 
 	OldPos              :%v 
 	Vel                 :%v  
-	Facing               :%f`,
+	Facing              :%f
+	Id                  :%d
+	HelperId            :%d
+	HelperIndex         :%d
+	ParentIndex         :%d
+	PlayerNo            :%d
+	Teamside            :%d
+	AnimPN              :%d
+	AnimNo              :%d
+	LifeMax             :%d
+	PowerMax            :%d
+	DizzyPoints         :%d
+	GuardPoints         :%d
+	FallTime            :%d
+	ClsnScale           :%v
+	HoIdx               :%d
+	Mctime              :%d
+	Targets             :%v
+	TargetsOfHitdef     :%v
+	Atktmp              :%d
+	Hittmp              :%d
+	Acttmp              :%d
+	Minus               :%d
+	GroundAngle          :%f
+	ComboExtraFrameWindow :%d
+	InheritJuggle         :%d
+	Preserve              :%d
+	Ivar            :%v
+	Fvar            :%v
+	Offset          :%v`,
 		cs.Name, cs.RedLife, cs.Juggle, cs.Life, cs.Key, cs.Localcoord,
-		cs.Localscl, cs.Pos, cs.DrawPos, cs.OldPos, cs.Vel, cs.Facing)
+		cs.Localscl, cs.Pos, cs.DrawPos, cs.OldPos, cs.Vel, cs.Facing,
+		cs.Id, cs.HelperId, cs.HelperIndex, cs.ParentIndex, cs.PlayerNo,
+		cs.Teamside, cs.AnimPN, cs.AnimNo, cs.LifeMax, cs.PowerMax, cs.DizzyPoints,
+		cs.GuardPoints, cs.FallTime, cs.ClsnScale, cs.HoIdx, cs.Mctime, cs.Targets, cs.TargetsOfHitdef,
+		cs.Atktmp, cs.Hittmp, cs.Acttmp, cs.Minus, cs.GroundAngle, cs.ComboExtraFrameWindow, cs.InheritJuggle,
+		cs.Preserve, cs.Ivar, cs.Fvar, cs.Offset)
 	str += fmt.Sprintf("\nChildren of %s:", cs.Name)
 	if len(cs.ChildrenState) == 0 {
 		str += "None\n"
@@ -274,7 +308,7 @@ func (cs *CharState) String() string {
 func (cs *CharState) findChar() *Char {
 	for i := 0; i < len(sys.chars); i++ {
 		for j := 0; j < len(sys.chars[i]); j++ {
-			if cs.id == sys.chars[i][j].id {
+			if cs.Id == sys.chars[i][j].id {
 				return sys.chars[i][j]
 			}
 		}
@@ -514,7 +548,7 @@ type GameState struct {
 	aiInput           [MaxSimul*2 + MaxAttachedChar]AiInput
 	inputRemap        [MaxSimul*2 + MaxAttachedChar]int
 	autoguard         [MaxSimul*2 + MaxAttachedChar]bool
-	charList          CharListState
+	charList          CharList
 	charMap           map[int32]CharState
 	projMap           map[int32]ProjectileState
 
@@ -1008,6 +1042,19 @@ func (gs *GameState) saveCharData() {
 	if sys.workingChar != nil {
 		gs.workingCharState = sys.workingChar.getCharState()
 	}
+
+	gs.charList = CharList{}
+	gs.charList.runOrder = make([]*Char, len(sys.charList.runOrder))
+	copy(gs.charList.runOrder, sys.charList.runOrder)
+
+	gs.charList.drawOrder = make([]*Char, len(sys.charList.drawOrder))
+	copy(gs.charList.drawOrder, sys.charList.drawOrder)
+
+	gs.charList.idMap = make(map[int32]*Char)
+	for k, v := range sys.charList.idMap {
+		gs.charList.idMap[k] = v
+	}
+
 }
 
 func (gs *GameState) saveProjectileData() {
@@ -1079,7 +1126,7 @@ func (gs *GameState) charsPersist() bool {
 			return false
 		}
 		for j := 0; j < len(sys.chars[i]); j++ {
-			if sys.chars[i][j].id != gs.CharState[i][j].id {
+			if sys.chars[i][j].id != gs.CharState[i][j].Id {
 				return false
 			}
 		}
@@ -1139,6 +1186,18 @@ func (gs *GameState) loadCharData() {
 	}
 	sys.workingChar = wc
 	sys.workingChar.loadCharState(gs.workingCharState)
+
+	sys.charList.runOrder = make([]*Char, len(gs.charList.runOrder))
+	copy(sys.charList.runOrder, gs.charList.runOrder)
+
+	sys.charList.drawOrder = make([]*Char, len(gs.charList.drawOrder))
+	copy(sys.charList.drawOrder, gs.charList.drawOrder)
+
+	sys.charList.idMap = make(map[int32]*Char)
+	for k, v := range gs.charList.idMap {
+		sys.charList.idMap[k] = v
+	}
+
 }
 
 func (gs *GameState) loadSuperData() {
