@@ -47,6 +47,13 @@ type PalFX struct {
 	eColor     float32
 }
 
+func (pf PalFX) clone() (result PalFX) {
+	result = pf
+	result.remap = make([]int, len(pf.remap))
+	copy(result.remap, pf.remap)
+	return
+}
+
 func (pf *PalFX) loadPalFX(px PalFX) {
 	pf.time = px.time
 	pf.color = px.color

@@ -798,6 +798,15 @@ type AfterImage struct {
 	ignorehitpause bool
 }
 
+func (ai AfterImage) clone() (result AfterImage) {
+	result = ai
+	result.palfx = make([]PalFX, len(ai.palfx))
+	for i := 0; i < len(ai.palfx); i++ {
+		result.palfx[i] = ai.palfx[i].clone()
+	}
+	return
+}
+
 func newAfterImage() *AfterImage {
 	ai := &AfterImage{palfx: make([]PalFX, sys.afterImageMax)}
 	for i := range ai.palfx {
@@ -971,91 +980,15 @@ type Explod struct {
 	localscl       float32
 }
 
-func (e *Explod) getExplodState() ExplodState {
-	var animState AnimationState
+func (e *Explod) clone() (result *Explod) {
+	result = &Explod{}
+	*result = *e
 	if e.anim != nil {
-		animState = e.anim.getAnimationState()
+		result.anim = e.anim.clone()
 	}
-
-	return ExplodState{
-		animState:      animState,
-		id:             e.id,
-		bindtime:       e.bindtime,
-		scale:          e.scale,
-		time:           e.time,
-		removeongethit: e.removeongethit,
-		removetime:     e.removetime,
-		velocity:       e.velocity,
-		accel:          e.accel,
-		sprpriority:    e.sprpriority,
-		postype:        e.postype,
-		space:          e.space,
-		offset:         e.offset,
-		relativef:      e.relativef,
-		pos:            e.pos,
-		facing:         e.facing,
-		vfacing:        e.vfacing,
-		shadow:         e.shadow,
-		supermovetime:  e.supermovetime,
-		pausemovetime:  e.pausemovetime,
-		ontop:          e.ontop,
-		under:          e.under,
-		alpha:          e.alpha,
-		ownpal:         e.ownpal,
-		playerId:       e.playerId,
-		bindId:         e.bindId,
-		ignorehitpause: e.ignorehitpause,
-		rot:            e.rot,
-		projection:     e.projection,
-		fLength:        e.fLength,
-		oldPos:         e.oldPos,
-		newPos:         e.newPos,
-		palfxdef:       e.palfxdef,
-		window:         e.window,
-		localscl:       e.localscl,
-		palFX:          *e.palfx,
-	}
-}
-
-func (e *Explod) loadExplodState(es ExplodState) {
-	if e.anim != nil {
-		e.anim.loadAnimationState(es.animState)
-	}
-	e.id = es.id
-	e.bindtime = es.bindtime
-	e.scale = es.scale
-	e.time = es.time
-	e.removeongethit = es.removeongethit
-	e.removetime = es.removetime
-	e.velocity = es.velocity
-	e.accel = es.accel
-	e.sprpriority = es.sprpriority
-	e.postype = es.postype
-	e.space = es.space
-	e.offset = es.offset
-	e.relativef = es.relativef
-	e.pos = es.pos
-	e.facing = es.facing
-	e.vfacing = es.vfacing
-	e.shadow = es.shadow
-	e.supermovetime = es.supermovetime
-	e.pausemovetime = es.pausemovetime
-	e.ontop = es.ontop
-	e.under = es.under
-	e.alpha = es.alpha
-	e.ownpal = es.ownpal
-	e.playerId = es.playerId
-	e.bindId = es.bindId
-	e.ignorehitpause = es.ignorehitpause
-	e.rot = es.rot
-	e.projection = es.projection
-	e.fLength = es.fLength
-	e.oldPos = es.oldPos
-	e.newPos = es.newPos
-	e.palfxdef = es.palfxdef
-	e.window = es.window
-	e.localscl = es.localscl
-	e.palfx.loadPalFX(es.palFX)
+	palfx := e.palfx.clone()
+	result.palfx = &palfx
+	return
 }
 
 func (e *Explod) clear() {
@@ -1364,103 +1297,21 @@ type Projectile struct {
 	platformFence   bool
 }
 
-func (p *Projectile) loadProjectileState(ps ProjectileState) {
-	p.hitdef = ps.hitdef
-	p.id = ps.id
-	p.anim = ps.anim
-	p.anim_fflg = ps.anim_fflg
-	p.hitanim = ps.hitanim
-	p.hitanim_fflg = ps.hitanim_fflg
-	p.remanim = ps.remanim
-	p.remanim_fflg = ps.remanim_fflg
-	p.cancelanim = ps.cancelanim
-	p.cancelanim_fflg = ps.cancelanim_fflg
-	p.scale = ps.scale
-	p.angle = ps.angle
-	p.clsnScale = ps.clsnScale
-	p.remove = ps.remove
-	p.removetime = ps.removetime
-	p.velocity = ps.velocity
-	p.remvelocity = ps.remvelocity
-	p.accel = ps.accel
-	p.velmul = ps.velmul
-	p.hits = ps.hits
-	p.misstime = ps.misstime
-	p.priority = ps.priority
-	p.priorityPoints = ps.priorityPoints
-	p.sprpriority = ps.sprpriority
-	p.edgebound = ps.edgebound
-	p.stagebound = ps.stagebound
-	p.heightbound = ps.heightbound
-	p.pos = ps.pos
-	p.facing = ps.facing
-	p.removefacing = ps.removefacing
-	p.shadow = ps.shadow
-	p.supermovetime = ps.supermovetime
-	p.pausemovetime = ps.pausemovetime
-	p.timemiss = ps.timemiss
-	p.hitpause = ps.hitpause
-	p.oldPos = ps.oldPos
-	p.newPos = ps.newPos
-	p.localscl = ps.localscl
-	p.parentAttackmul = ps.parentAttackmul
-	p.platform = ps.platform
-	p.platformWidth = ps.platformWidth
-	p.platformHeight = ps.platformHeight
-	p.platformAngle = ps.platformAngle
-	p.platformFence = ps.platformFence
-
-}
-
-func (p *Projectile) getProjectileState() ProjectileState {
-	return ProjectileState{
-		ptr:             p,
-		hitdef:          p.hitdef,
-		id:              p.id,
-		anim:            p.anim,
-		anim_fflg:       p.anim_fflg,
-		hitanim:         p.hitanim,
-		hitanim_fflg:    p.hitanim_fflg,
-		remanim:         p.remanim,
-		remanim_fflg:    p.remanim_fflg,
-		cancelanim:      p.cancelanim,
-		cancelanim_fflg: p.cancelanim_fflg,
-		scale:           p.scale,
-		angle:           p.angle,
-		clsnScale:       p.clsnScale,
-		remove:          p.remove,
-		removetime:      p.removetime,
-		velocity:        p.velocity,
-		remvelocity:     p.remvelocity,
-		accel:           p.accel,
-		velmul:          p.velmul,
-		hits:            p.hits,
-		misstime:        p.misstime,
-		priority:        p.priority,
-		priorityPoints:  p.priorityPoints,
-		sprpriority:     p.sprpriority,
-		edgebound:       p.edgebound,
-		stagebound:      p.stagebound,
-		heightbound:     p.heightbound,
-		pos:             p.pos,
-		facing:          p.facing,
-		removefacing:    p.removefacing,
-		shadow:          p.shadow,
-		supermovetime:   p.supermovetime,
-		pausemovetime:   p.pausemovetime,
-		timemiss:        p.timemiss,
-		hitpause:        p.hitpause,
-		oldPos:          p.oldPos,
-		newPos:          p.newPos,
-		localscl:        p.localscl,
-		parentAttackmul: p.parentAttackmul,
-		platform:        p.platform,
-		platformWidth:   p.platformWidth,
-		platformHeight:  p.platformHeight,
-		platformAngle:   p.platformAngle,
-		platformFence:   p.platformFence,
+func (p Projectile) clone() (result Projectile) {
+	result = p
+	if p.ani != nil {
+		*result.ani = *p.ani.clone()
 	}
+	result.aimg.palfx = make([]PalFX, len(p.aimg.palfx))
+	for i := 0; i < len(p.aimg.palfx); i++ {
+		result.aimg.palfx[i] = p.aimg.palfx[i].clone()
+	}
+
+	palfx := p.palfx.clone()
+	result.palfx = &palfx
+	return
 }
+
 func newProjectile() *Projectile {
 	p := &Projectile{}
 	p.clear()
@@ -1753,8 +1604,10 @@ type StateState struct {
 
 func (ss *StateState) clone() (result StateState) {
 	result = *ss
+	result.ps = make([]int32, len(ss.ps))
 	copy(result.ps, ss.ps)
 	for i := 0; i < len(ss.wakegawakaranai); i++ {
+		result.wakegawakaranai[i] = make([]bool, len(ss.wakegawakaranai[i]))
 		copy(result.wakegawakaranai[i], ss.wakegawakaranai[i])
 	}
 	result.sb = ss.sb.clone()
@@ -2383,18 +2236,54 @@ func (c *Char) loadCharState(cs CharState) {
 	}
 }
 
-func (c *Char) clone() (result *Char) {
-	result = &Char{}
-	*result = *c
+func (c *Char) clone() (result Char) {
+	result = Char{}
+	result = *c
+
+	result.aimg = c.aimg.clone()
+
+	result.nextHitScale = make(map[int32][3]*HitScale)
+	for i, v := range c.nextHitScale {
+		hitScale := [3]*HitScale{}
+		for i := 0; i < len(v); i++ {
+			if v[i] != nil {
+				*hitScale[i] = *v[i]
+			}
+		}
+		result.nextHitScale[i] = hitScale
+	}
+
+	result.activeHitScale = make(map[int32][3]*HitScale)
+	for i, v := range c.activeHitScale {
+		hitScale := [3]*HitScale{}
+		for i := 0; i < len(v); i++ {
+			if v[i] != nil {
+				// *hitScale[i] = *v[i] causes bugs
+				hitScale[i] = v[i]
+				*hitScale[i] = *v[i]
+			}
+		}
+		result.activeHitScale[i] = hitScale
+	}
+
+	// todo, find the curFrame index and set result.curFrame as the pointer at
+	// that index
+	if c.anim != nil {
+		result.anim = c.anim.clone()
+	}
+	if c.curFrame != nil {
+		result.curFrame = c.curFrame.clone()
+	}
 
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc
 	result.ghv = *c.ghv.clone()
 
 	result.children = make([]*Char, len(c.children))
-	for i := 0; i < len(c.children); i++ {
-		result.children[i] = c.children[i].clone()
-	}
+	copy(result.children, c.children)
+	// for i := 0; i < len(c.children); i++ {
+	// 	//result.children[i] = c.children[i].clone()
+	// }
 
 	result.targets = make([]int32, len(c.targets))
 	copy(result.targets, c.targets)
@@ -2404,14 +2293,29 @@ func (c *Char) clone() (result *Char) {
 
 	for i := range c.enemynear {
 		result.enemynear[i] = make([]*Char, len(c.enemynear[i]))
-		for j := 0; j < len(c.enemynear[i]); j++ {
-			result.enemynear[i][j] = c.enemynear[i][j].clone()
-		}
+		copy(result.enemynear[i], c.enemynear[i])
+		//for j := 0; j < len(c.enemynear[i]); j++ {
+		//	result.enemynear[i][j] = c.enemynear[i][j].clone()
+		//}
 	}
 
 	result.clipboardText = make([]string, len(c.clipboardText))
 	copy(result.clipboardText, c.clipboardText)
 
+	result.cmd = make([]CommandList, len(c.cmd))
+	for i, c := range c.cmd {
+		result.cmd[i] = c.clone()
+	}
+	for i := range result.cmd {
+		result.cmd[i].Buffer = result.cmd[0].Buffer
+	}
+
+	result.ss = c.ss.clone()
+
+	result.mapArray = make(map[string]float32)
+	for k, v := range c.mapArray {
+		result.mapArray[k] = v
+	}
 	return
 }
 
@@ -2463,6 +2367,7 @@ func (c *Char) clearState() {
 	for i := range c.ho {
 		c.ho[i].clear()
 	}
+	//fmt.Println("I'm here in Char.clearState()")
 	c.mctype = MC_Hit
 	c.mctime = 0
 	c.counterHit = false
@@ -3123,6 +3028,7 @@ func (c *Char) clearHitCount() {
 	c.hitCount, c.uniqHitCount = 0, 0
 }
 func (c *Char) clearMoveHit() {
+	//fmt.Println("I'm here in Char.clearMoveHit()")
 	c.mctime = 0
 	c.counterHit = false
 }
@@ -3534,6 +3440,7 @@ func (c *Char) numEnemy() int32 {
 			n += 1
 		}
 	}
+	//fmt.Printf("Num enemy for char %s n: %d\n", c.name, n)
 	return n
 }
 func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
@@ -3546,6 +3453,7 @@ func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
 			n++
 		}
 	}
+	//fmt.Printf("In Char.numExplods: char %s id: %d n: %d\n", c.name, id, n)
 	return BytecodeInt(n)
 }
 func (c *Char) numHelper(hid BytecodeValue) BytecodeValue {
@@ -3573,6 +3481,7 @@ func (c *Char) numProj() int32 {
 			n++
 		}
 	}
+	//fmt.Printf("Numproj for char %s: %d", c.name, n)
 	return n
 }
 func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
@@ -3588,6 +3497,7 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 			n++
 		}
 	}
+	//fmt.Printf("Num Proj ID for character %s %d\n", c.name, n)
 	return BytecodeInt(n)
 }
 func (c *Char) numTarget(hid BytecodeValue) BytecodeValue {
@@ -3604,6 +3514,7 @@ func (c *Char) numTarget(hid BytecodeValue) BytecodeValue {
 			}
 		}
 	}
+	//fmt.Printf("Num Target for char %s n: %d", c.name, n)
 	return BytecodeInt(n)
 }
 func (c *Char) palno() int32 {
@@ -3640,6 +3551,7 @@ func (c *Char) projContactTime(pid BytecodeValue) BytecodeValue {
 	if id > 0 && id != c.gi().pcid {
 		return BytecodeInt(-1)
 	}
+	//fmt.Println(c.gi().pctime)
 	return BytecodeInt(c.gi().pctime)
 }
 func (c *Char) projGuardedTime(pid BytecodeValue) BytecodeValue {
@@ -3932,6 +3844,7 @@ func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx bool) {
 		for c.stchtmp && sys.changeStateNest < 2500 {
 			c.stateChange2()
 			sys.changeStateNest++
+			//fmt.Printf("In Char.changeStateEx, running state %d for char %s id %d\n", c.ss.no, c.name, c.id)
 			if !c.ss.sb.run(c) {
 				break
 			}
@@ -3969,6 +3882,7 @@ func (c *Char) destroy() {
 			if p := c.parent(); p != nil {
 				for i, ch := range p.children {
 					if ch == c {
+						//fmt.Printf("In Char.destroy for %s, setting child %s to nil\n", c.name, p.children[i].name)
 						p.children[i] = nil
 					}
 				}
@@ -3986,6 +3900,7 @@ func (c *Char) destroy() {
 	}
 }
 func (c *Char) destroySelf(recursive, removeexplods bool) bool {
+	//fmt.Printf("In Char.destroySelf, destroying char: %s\n", c.name)
 	if c.helperIndex <= 0 {
 		return false
 	}
@@ -4605,6 +4520,7 @@ func (c *Char) sysFvarGet(i int32) BytecodeValue {
 	return BytecodeSF()
 }
 func (c *Char) varSet(i, v int32) BytecodeValue {
+	//fmt.Printf("In char %s: varset %d : %d\n", c.name, i, v)
 	if i >= 0 && i < int32(NumVar) {
 		c.ivar[i] = v
 		return BytecodeInt(v)
@@ -5076,6 +4992,8 @@ func (c *Char) rdDistX(rd *Char, oc *Char) BytecodeValue {
 	if c.stCgi().ver[0] != 1 {
 		dist = float32(int32(dist)) //旧バージョンでは小数点切り捨て
 	}
+	//fmt.Printf("rdDistX for char %s,  %f\n", c.name, dist)
+
 	return BytecodeFloat(dist)
 }
 func (c *Char) rdDistY(rd *Char, oc *Char) BytecodeValue {
@@ -5093,6 +5011,7 @@ func (c *Char) p2BodyDistX(oc *Char) BytecodeValue {
 		if c.stCgi().ver[0] != 1 {
 			dist = float32(int32(dist)) //旧バージョンでは小数点切り捨て
 		}
+		//fmt.Printf("p2BodyDist for char %s,  %f\n", c.name, dist)
 		return BytecodeFloat(dist)
 	}
 }
@@ -5818,6 +5737,7 @@ func (c *Char) clsnCheck(atk *Char, c1atk, c1slf bool) bool {
 	if atk.curFrame == nil || c.curFrame == nil ||
 		c.scf(SCF_standby) || atk.scf(SCF_standby) ||
 		c.scf(SCF_disabled) && atk.scf(SCF_disabled) {
+		//fmt.Println("Failed hittable because Nil anim and standby check. ")
 		return false
 	}
 
@@ -5825,18 +5745,25 @@ func (c *Char) clsnCheck(atk *Char, c1atk, c1slf bool) bool {
 	if c.size.z.enable && atk.size.z.enable &&
 		((c.pos[2]-c.size.z.width)*c.localscl > (atk.pos[2]+atk.size.z.width)*atk.localscl ||
 			(c.pos[2]+c.size.z.width)*c.localscl < (atk.pos[2]-atk.size.z.width)*atk.localscl) {
+		//fmt.Println("Failed hittable because Z axis check check. ")
 		return false
 	}
 
 	var clsn1, clsn2 []float32
 	if c1atk {
+		//fmt.Println("c1atk")
 		clsn1 = atk.curFrame.Clsn1()
 	} else {
+		//fmt.Println("Noc1atk")
+
 		clsn1 = atk.curFrame.Clsn2()
 	}
 	if c1slf {
+		//fmt.Println("c1slf")
+
 		clsn2 = c.curFrame.Clsn1()
 	} else {
+		//fmt.Println("No c1slf")
 		clsn2 = c.curFrame.Clsn2()
 	}
 	return sys.clsnHantei(clsn1, [...]float32{sys.chars[atk.animPN][0].clsnScale[0] * (320 / sys.chars[atk.animPN][0].localcoord), sys.chars[atk.animPN][0].clsnScale[1] * (320 / sys.chars[atk.animPN][0].localcoord)},
@@ -6076,29 +6003,34 @@ func (c *Char) actionRunStates() {
 	}
 	c.minus = -4
 	if sb, ok := c.gi().states[-4]; ok {
+		//fmt.Printf("In Char.actionRunStates, running state %d for char %s id %d\n", c.ss.no, c.name, c.id)
 		sb.run(c)
 	}
 	if !c.pauseBool {
 		c.minus = -3
 		if c.ss.sb.playerNo == c.playerNo && (c.player || c.keyctrl[2]) {
 			if sb, ok := c.gi().states[-3]; ok {
+				//fmt.Printf("In Char.actionRunStates, running state %d for char %s id %d\n", c.ss.no, c.name, c.id)
 				sb.run(c)
 			}
 		}
 		c.minus = -2
 		if c.player || c.keyctrl[1] {
 			if sb, ok := c.gi().states[-2]; ok {
+				//fmt.Printf("In Char.actionRunStates, running state %d for char %s id %d\n", c.ss.no, c.name, c.id)
 				sb.run(c)
 			}
 		}
 		c.minus = -1
 		if c.ss.sb.playerNo == c.playerNo && (c.player || c.keyctrl[0]) {
 			if sb, ok := c.gi().states[-1]; ok {
+				//fmt.Printf("In Char.actionRunStates, running state %d for char %s id %d\n", c.ss.no, c.name, c.id)
 				sb.run(c)
 			}
 		}
 		c.stateChange2()
 		c.minus = 0
+		//fmt.Printf("In Char.actionRunStates, running state %d for char %s id %d\n", c.ss.no, c.name, c.id)
 		c.ss.sb.run(c)
 	}
 }
@@ -6204,6 +6136,7 @@ func (c *Char) update(cvmin, cvmax,
 	}
 	if sys.tickFrame() {
 		if c.sf(CSF_destroy) {
+			//fmt.Printf("In Char.update, destroying char: %s\n", c.name)
 			c.destroy()
 			return
 		}
@@ -6371,6 +6304,7 @@ func (c *Char) update(cvmin, cvmax,
 	}
 }
 func (c *Char) tick() {
+	//fmt.Printf("Char.tick() Name: %s StateNo: %d\n", c.name, c.ss.no)
 	if c.acttmp > 0 && !c.sf(CSF_animfreeze) && c.anim != nil {
 		c.anim.Action()
 	}
@@ -6415,6 +6349,7 @@ func (c *Char) tick() {
 		c.hitdef.lhit = false
 	}
 	if c.mctime < 0 {
+		//fmt.Println("I'm here in Char.Tick()")
 		c.mctime = 1
 		if c.mctype == MC_Hit {
 			c.juggle = 0
@@ -6636,18 +6571,20 @@ func (cl *CharList) clone() (result *CharList) {
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc
 	result.runOrder = make([]*Char, len(cl.runOrder))
-	for i := 0; i < len(cl.runOrder); i++ {
-		result.runOrder[i] = cl.runOrder[i].clone()
-	}
+	copy(result.runOrder, cl.runOrder)
+	//for i := 0; i < len(cl.runOrder); i++ {
+	//	result.runOrder[i] = cl.runOrder[i].clone()
+	//}
 
 	result.drawOrder = make([]*Char, len(cl.drawOrder))
-	for i := 0; i < len(cl.drawOrder); i++ {
-		result.drawOrder[i] = cl.drawOrder[i].clone()
-	}
+	copy(result.drawOrder, cl.drawOrder)
+	// for i := 0; i < len(cl.drawOrder); i++ {
+	// 	result.drawOrder[i] = cl.drawOrder[i].clone()
+	// }
 
 	result.idMap = make(map[int32]*Char)
 	for k, v := range cl.idMap {
-		result.idMap[k] = v.clone()
+		result.idMap[k] = v
 	}
 	return
 }

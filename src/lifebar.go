@@ -2906,6 +2906,53 @@ type Lifebar struct {
 
 func (l *Lifebar) clone() (result Lifebar) {
 	result = *l
+
+	if l.ro != nil {
+		round := *l.ro
+		result.ro = &round
+	}
+
+	//UIT
+	for i := 0; i < len(l.sc); i++ {
+		if l.sc[i] != nil {
+			score := *l.sc[i]
+			result.sc[i] = &score
+		}
+	}
+	if l.ti != nil {
+		time := *l.ti
+		result.ti = &time
+	}
+	for i := 0; i < len(l.co); i++ {
+		if l.co[i] != nil {
+			combo := *l.co[i]
+			result.co[i] = &combo
+		}
+	}
+	//
+
+	// Not UIT adding amyway
+	for i := 0; i < len(l.wc); i++ {
+		wins := *l.wc[i]
+		result.wc[i] = &wins
+	}
+
+	if l.ma != nil {
+		match := *l.ma
+		result.ma = &match
+	}
+
+	for i := 0; i < len(l.ai); i++ {
+		ai := *l.ai[i]
+		result.ai[i] = &ai
+	}
+
+	if l.tr != nil {
+		timer := *l.tr
+		result.tr = &timer
+	}
+	//
+
 	for i := range result.order {
 		result.order[i] = make([]int, len(l.order[i]))
 		copy(result.order[i], l.order[i])
@@ -2913,32 +2960,50 @@ func (l *Lifebar) clone() (result Lifebar) {
 
 	for i := range result.hb {
 		result.hb[i] = make([]*HealthBar, len(l.hb[i]))
-		copy(result.hb[i], l.hb[i])
+		for j := 0; j < len(l.hb[i]); j++ {
+			health := *l.hb[i][j]
+			result.hb[i][j] = &health
+		}
 	}
 
 	for i := range result.pb {
 		result.pb[i] = make([]*PowerBar, len(l.pb[i]))
-		copy(result.pb[i], l.pb[i])
+		for j := 0; j < len(l.pb[i]); j++ {
+			power := *l.pb[i][j]
+			result.pb[i][j] = &power
+		}
 	}
 
 	for i := range result.gb {
 		result.gb[i] = make([]*GuardBar, len(l.gb[i]))
-		copy(result.gb[i], l.gb[i])
+		for j := 0; j < len(l.gb[i]); j++ {
+			gaurd := *l.gb[i][j]
+			result.gb[i][j] = &gaurd
+		}
 	}
 
 	for i := range result.sb {
 		result.sb[i] = make([]*StunBar, len(l.sb[i]))
-		copy(result.sb[i], l.sb[i])
+		for j := 0; j < len(l.sb[i]); j++ {
+			stun := *l.sb[i][j]
+			result.sb[i][j] = &stun
+		}
 	}
 
 	for i := range result.fa {
 		result.fa[i] = make([]*LifeBarFace, len(l.fa[i]))
-		copy(result.fa[i], l.fa[i])
+		for j := 0; j < len(l.fa[i]); j++ {
+			face := *l.fa[i][j]
+			result.fa[i][j] = &face
+		}
 	}
 
 	for i := range result.nm {
 		result.nm[i] = make([]*LifeBarName, len(l.nm[i]))
-		copy(result.nm[i], l.nm[i])
+		for j := 0; j < len(l.nm[i]); j++ {
+			name := *l.nm[i][j]
+			result.nm[i][j] = &name
+		}
 	}
 
 	return

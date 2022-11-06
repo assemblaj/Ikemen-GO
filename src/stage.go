@@ -132,6 +132,13 @@ type backGround struct {
 	roundpos           bool
 }
 
+func (bg *backGround) clone() (result *backGround) {
+	result = &backGround{}
+	*result = *bg
+	result.anim = *bg.anim.clone()
+	return
+}
+
 func newBackGround(sff *Sff) *backGround {
 	return &backGround{anim: *newAnimation(sff), delta: [...]float32{1, 1}, zoomdelta: [...]float32{1, math.MaxFloat32},
 		xscale: [...]float32{1, 1}, rasterx: [...]float32{1, 1}, yscalestart: 100, scalestart: [...]float32{1, 1}, xbottomzoomdelta: math.MaxFloat32,
@@ -437,6 +444,16 @@ type bgCtrl struct {
 	sctrlid      int32
 }
 
+func (bgc *bgCtrl) clone() (result bgCtrl) {
+	result = bgCtrl{}
+	result = *bgc
+	result.bg = make([]*backGround, len(bgc.bg))
+	for i := 0; i < len(bgc.bg); i++ {
+		result.bg[i] = bgc.bg[i].clone()
+	}
+	return
+}
+
 func newBgCtrl() *bgCtrl {
 	return &bgCtrl{looptime: -1, x: float32(math.NaN()), y: float32(math.NaN())}
 }
@@ -492,9 +509,36 @@ type bgctNode struct {
 	bgc      []*bgCtrl
 	waitTime int32
 }
+
+func (bgctn bgctNode) clone() (result bgctNode) {
+	result = bgctNode{}
+	result = bgctn
+	result.bgc = make([]*bgCtrl, len(bgctn.bgc))
+	for i := 0; i < len(bgctn.bgc); i++ {
+		bgc := bgctn.bgc[i].clone()
+		result.bgc[i] = &bgc
+	}
+	return
+}
+
 type bgcTimeLine struct {
 	line []bgctNode
 	al   []*bgCtrl
+}
+
+func (bgct *bgcTimeLine) clone() (result bgcTimeLine) {
+	result = bgcTimeLine{}
+	result = *bgct
+	result.line = make([]bgctNode, len(bgct.line))
+	for i := 0; i < len(bgct.line); i++ {
+		result.line[i] = bgct.line[i].clone()
+	}
+	result.al = make([]*bgCtrl, len(bgct.al))
+	for i := 0; i < len(bgct.al); i++ {
+		bgCtrl := bgct.al[i].clone()
+		result.al[i] = &bgCtrl
+	}
+	return
 }
 
 func (bgct *bgcTimeLine) clear() {
@@ -630,6 +674,37 @@ type Stage struct {
 	ver             [2]uint16
 	reload          bool
 	stageprops      StageProps
+}
+
+func (s *Stage) clone() (result *Stage) {
+	result = &Stage{}
+	*result = *s
+
+	result.attachedchardef = make([]string, len(s.attachedchardef))
+	copy(result.attachedchardef, s.attachedchardef)
+
+	result.constants = make(map[string]float32)
+	for k, v := range s.constants {
+		result.constants[k] = v
+	}
+
+	result.at = make(AnimationTable)
+	for k, v := range s.at {
+		result.at[k] = v.clone()
+	}
+
+	result.bg = make([]*backGround, len(s.bg))
+	for i := 0; i < len(s.bg); i++ {
+		result.bg[i] = s.bg[i].clone()
+	}
+
+	result.bgc = make([]bgCtrl, len(s.bgc))
+	for i := 0; i < len(s.bgc); i++ {
+		result.bgc[i] = s.bgc[i].clone()
+	}
+
+	result.bgct = s.bgct.clone()
+	return
 }
 
 func (s *Stage) getStageState() StageState {

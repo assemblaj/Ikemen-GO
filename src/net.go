@@ -36,8 +36,15 @@ func (r *RollbackSession) IsConnected() bool {
 }
 
 func (g *RollbackSession) SaveGameState(stateID int) int {
-	gs := NewGameState()
-	g.saveStates[stateID] = gs
+	// gs := NewGameState()
+	// if len(sys.gameStatePool) > 0 {
+	// 	fmt.Println("UsedPool")
+	// 	gs = <-sys.gameStatePool
+	// } else {
+	// 	fmt.Println("Didn't use pool")
+	// 	gs = NewGameState()
+	// }
+	g.saveStates[stateID] = sys.statePool.Get().(*GameState)
 	g.saveStates[stateID].SaveState()
 
 	fmt.Printf("Save state for stateID: %d\n", stateID)
@@ -46,6 +53,7 @@ func (g *RollbackSession) SaveGameState(stateID int) int {
 	checksum := g.saveStates[stateID].Checksum()
 	fmt.Printf("checksum: %d\n", checksum)
 	return checksum
+	//return ggpo.DefaultChecksum
 }
 
 func (g *RollbackSession) LoadGameState(stateID int) {
@@ -56,6 +64,7 @@ func (g *RollbackSession) LoadGameState(stateID int) {
 	fmt.Printf("checksum: %d\n", checksum)
 
 	g.saveStates[stateID].LoadState()
+	sys.statePool.Put(g.saveStates[stateID])
 	//sys.gameStatePool <- g.saveStates[stateID]
 }
 

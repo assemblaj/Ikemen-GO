@@ -95,11 +95,16 @@ var sys = System{
 	currentState:         *NewGameState(),
 	gameStates:           [8]GameState{},
 	replays:              [8]ReplayState{},
-	gameStatePool:        make(chan *GameState, 9),
-	replayPool:           make(chan *ReplayState, 9),
+	gameStatePool:        make(chan *GameState, 8),
+	replayPool:           make(chan *ReplayState, 8),
 	rollbackState: RollbackState{
 		rollbackTest:   true,
 		rollbackWindow: 8,
+	},
+	statePool: sync.Pool{
+		// New optionally specifies a function to generate
+		// a value when Get would otherwise return nil.
+		New: func() interface{} { return NewGameState() },
 	},
 }
 
@@ -385,6 +390,7 @@ type System struct {
 	rollbackNetwork    *RollbackSession
 
 	currentFight Fight
+	statePool    sync.Pool
 }
 
 type Fight struct {
@@ -403,6 +409,50 @@ type Fight struct {
 	remapSpr                     []RemapPreset
 }
 
+func (f Fight) clone() (result Fight) {
+	result = f
+	result.oldStageVars = *f.oldStageVars.clone()
+	result.level = make([]int32, len(f.level))
+	copy(result.level, f.level)
+
+	result.life = make([]int32, len(f.life))
+	copy(result.life, f.life)
+	result.pow = make([]int32, len(f.pow))
+	copy(result.pow, f.pow)
+	result.gpow = make([]int32, len(f.gpow))
+	copy(result.gpow, f.gpow)
+	result.spow = make([]int32, len(f.spow))
+	copy(result.spow, f.spow)
+	result.rlife = make([]int32, len(f.rlife))
+	copy(result.rlife, f.rlife)
+
+	result.ivar = make([][]int32, len(f.ivar))
+	for i := 0; i < len(f.ivar); i++ {
+		result.ivar[i] = make([]int32, len(f.ivar[i]))
+		copy(result.ivar[i], f.ivar[i])
+	}
+
+	result.fvar = make([][]float32, len(f.fvar))
+	for i := 0; i < len(f.ivar); i++ {
+		result.fvar[i] = make([]float32, len(f.fvar[i]))
+		copy(result.fvar[i], f.fvar[i])
+	}
+
+	result.dialogue = make([][]string, len(f.dialogue))
+	for i := 0; i < len(result.dialogue); i++ {
+		result.dialogue[i] = make([]string, len(f.dialogue[i]))
+		copy(result.dialogue[i], f.dialogue[i])
+	}
+
+	result.mapArray = make([]map[string]float32, len(f.mapArray))
+	for i := 0; i < len(f.mapArray); i++ {
+		result.mapArray[i] = make(map[string]float32)
+		for k, v := range f.mapArray[i] {
+			result.mapArray[i][k] = v
+		}
+	}
+	return
+}
 func (f *Fight) copyVar(pn int) {
 	f.life[pn] = sys.chars[pn][0].life
 	f.pow[pn] = sys.chars[pn][0].power
@@ -1113,6 +1163,13 @@ func (s *System) loadTime(start time.Time, str string, shell, console bool) {
 func (s *System) clsnHantei(clsn1 []float32, scl1, pos1 [2]float32,
 	facing1 float32, clsn2 []float32, scl2, pos2 [2]float32,
 	facing2 float32) bool {
+
+	//fmt.Println("ClsnHantei Params: ")
+	//	fmt.Printf("clsn1: %v, scl1 %v, pos1 %v, facing %f, clsn2 %v, scl2, %v, pos2 %v, facing %f\n",
+	//		clsn1, scl1, pos1,
+	//		facing1, clsn2, scl2, pos2,
+	//		facing2)
+
 	if scl1[0] < 0 {
 		facing1 *= -1
 		scl1[0] *= -1
@@ -1139,6 +1196,7 @@ func (s *System) clsnHantei(clsn1 []float32, scl1, pos1 [2]float32,
 			}
 		}
 	}
+	//fmt.Println("Failed hittable because collision hantei.")
 	return false
 }
 func (s *System) newCharId() int32 {
@@ -1171,6 +1229,7 @@ func (s *System) playerClear(pn int, destroy bool) {
 		p := s.chars[pn][0]
 		for _, h := range s.chars[pn][1:] {
 			if destroy || h.preserve == 0 || (s.roundResetFlg && h.preserve == s.round) {
+				//fmt.Println("In System.playerClear, destroying character")
 				h.destroy()
 			}
 			h.soundChannels.SetSize(0)
@@ -1181,6 +1240,7 @@ func (s *System) playerClear(pn int, destroy bool) {
 			for i, ch := range p.children {
 				if ch != nil {
 					if ch.preserve == 0 || (s.roundResetFlg && ch.preserve == s.round) {
+						//fmt.Println("In System.playerClear, setting child to nil")
 						p.children[i] = nil
 					}
 				}
@@ -2769,6 +2829,20 @@ type Select struct {
 	cdefOverwrite      map[int]string
 	sdefOverwrite      string
 	ocd                [3][]OverrideCharData
+}
+
+// other things can be copied, only focusing on OCD right now
+func (s Select) clone() (result Select) {
+	result = s
+	for i := 0; i < len(s.ocd); i++ {
+		result.ocd[i] = make([]OverrideCharData, len(s.ocd[i]))
+		copy(result.ocd[i], s.ocd[i])
+	}
+
+	result.stageAnimPreload = make([]int32, len(s.stageAnimPreload))
+	copy(result.stageAnimPreload, s.stageAnimPreload)
+
+	return
 }
 
 func newSelect() *Select {

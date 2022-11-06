@@ -15,6 +15,17 @@ type AnimFrame struct {
 	Ex            [][]float32
 }
 
+func (af *AnimFrame) clone() (result *AnimFrame) {
+	result = &AnimFrame{}
+	*result = *af
+	result.Ex = make([][]float32, len(af.Ex))
+	for i := 0; i < len(af.Ex); i++ {
+		result.Ex[i] = make([]float32, len(af.Ex[i]))
+		copy(result.Ex[i], af.Ex[i])
+	}
+	return
+}
+
 func newAnimFrame() *AnimFrame {
 	return &AnimFrame{Time: -1, Group: -1, SrcAlpha: 255, H: 1, V: 1}
 }
@@ -165,6 +176,30 @@ type Animation struct {
 	interpolate_blend_dstalpha float32
 	remap                      RemapPreset
 	start_scale                [2]float32
+}
+
+func (a *Animation) clone() (result *Animation) {
+	result = &Animation{}
+	*result = *a
+
+	result.frames = make([]AnimFrame, len(a.frames))
+	for i := 0; i < len(a.frames); i++ {
+		result.frames[i] = *a.frames[i].clone()
+	}
+
+	result.interpolate_offset = make([]int32, len(a.interpolate_offset))
+	copy(result.interpolate_offset, a.interpolate_offset)
+
+	result.interpolate_scale = make([]int32, len(a.interpolate_scale))
+	copy(result.interpolate_scale, a.interpolate_scale)
+
+	result.interpolate_angle = make([]int32, len(a.interpolate_angle))
+	copy(result.interpolate_angle, a.interpolate_angle)
+
+	result.interpolate_blend = make([]int32, len(a.interpolate_blend))
+	copy(result.interpolate_blend, a.interpolate_blend)
+
+	return
 }
 
 func (a *Animation) getAnimationState() AnimationState {
@@ -411,6 +446,7 @@ func (a *Animation) AnimElemTime(elem int32) int32 {
 	for i := int32(0); i < e; i++ {
 		t -= Max(0, a.frames[i].Time)
 	}
+	//fmt.Printf("AnimElemTime: %d \n", t)
 	return t
 }
 func (a *Animation) AnimElemNo(time int32) int32 {

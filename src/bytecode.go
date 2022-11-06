@@ -6,9 +6,29 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"strings"
 	"unsafe"
 )
+
+func GetFunctionName(i interface{}) string {
+	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
+}
+
+func PrintSCBInfo(c *Char) {
+	//fmt.Printf("In %s for Char %s id %d StateNo: %d prevNo: %d\n", currentFunction(), c.name, c.id, c.ss.no, c.ss.prevno)
+}
+func currentFunction() string {
+	counter, _, _, success := runtime.Caller(2)
+
+	if !success {
+		println("functionName: runtime.Caller: failed")
+		os.Exit(1)
+	}
+
+	return runtime.FuncForPC(counter).Name()
+}
 
 type StateType int32
 
@@ -521,6 +541,17 @@ const (
 type StringPool struct {
 	List []string
 	Map  map[string]int
+}
+
+func (sp StringPool) clone() (result StringPool) {
+	result = sp
+	result.List = make([]string, len(sp.List))
+	copy(result.List, sp.List)
+	result.Map = make(map[string]int)
+	for k, v := range sp.Map {
+		result.Map[k] = v
+	}
+	return
 }
 
 func NewStringPool() *StringPool {
@@ -2075,11 +2106,13 @@ type StateBlock struct {
 
 func (b *StateBlock) clone() (result StateBlock) {
 	result = *b
+	result.trigger = make(BytecodeExp, len(b.trigger))
 	copy(result.trigger, b.trigger)
 	if b.elseBlock != nil {
 		eb := b.elseBlock.clone()
 		result.elseBlock = &eb
 	}
+	result.ctrls = make([]StateController, len(b.ctrls))
 	copy(result.ctrls, b.ctrls)
 	return result
 }
@@ -2287,6 +2320,7 @@ const (
 func (sc hitBy) Run(c *Char, _ []int32) bool {
 	time := int32(1)
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case hitBy_time:
@@ -2314,6 +2348,7 @@ type notHitBy hitBy
 func (sc notHitBy) Run(c *Char, _ []int32) bool {
 	time := int32(1)
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case hitBy_time:
@@ -2347,6 +2382,7 @@ const (
 
 func (sc assertSpecial) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case assertSpecial_flag:
@@ -2382,6 +2418,7 @@ const (
 
 func (sc playSnd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	f, lw, lp := false, false, false
 	var g, n, ch, vo int32 = -1, 0, -1, 100
 	var p, fr float32 = 0, 1
@@ -2437,6 +2474,7 @@ const (
 
 func (sc changeState) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var v, a, ctrl int32 = -1, -1, -1
 	fflg := false
 	changeState := true
@@ -2467,6 +2505,7 @@ type selfState changeState
 
 func (sc selfState) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var v, a, r, ctrl int32 = -1, -1, -1, -1
 	fflg := false
 	changeState := true
@@ -2514,6 +2553,7 @@ const (
 
 func (sc tagIn) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var tagSCF int32 = -1
 	var partnerNo int32 = -1
 	var partnerStateNo int32 = -1
@@ -2606,6 +2646,7 @@ const (
 
 func (sc tagOut) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var tagSCF int32 = -1
 	var partnerNo int32 = -1
 	var partnerStateNo int32 = -1
@@ -2671,6 +2712,7 @@ const (
 
 func (sc destroySelf) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	rec, rem := false, false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -2700,6 +2742,7 @@ const (
 
 func (sc changeAnim) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var elem int32
 	setelem := false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -2728,6 +2771,7 @@ type changeAnim2 changeAnim
 
 func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var elem int32
 	setelem := false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -2788,6 +2832,7 @@ const (
 
 func (sc helper) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	var h *Char
 	pt := PT_P1
@@ -2914,6 +2959,7 @@ const (
 
 func (sc ctrlSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case ctrlSet_value:
@@ -2941,6 +2987,7 @@ const (
 
 func (sc posSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -2971,6 +3018,7 @@ type posAdd posSet
 
 func (sc posAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -3001,6 +3049,7 @@ type velSet posSet
 
 func (sc velSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -3031,6 +3080,7 @@ type velAdd posSet
 
 func (sc velAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -3061,6 +3111,7 @@ type velMul posSet
 
 func (sc velMul) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case posSet_x:
@@ -3135,6 +3186,7 @@ func (sc palFX) runSub(c *Char, pfd *PalFXDef,
 }
 func (sc palFX) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	if !crun.ownpal {
 		return false
 	}
@@ -3165,6 +3217,7 @@ func (sc palFX) Run(c *Char, _ []int32) bool {
 type allPalFX palFX
 
 func (sc allPalFX) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	sys.allPalFX.clear()
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		palFX(sc).runSub(c, &sys.allPalFX.PalFXDef, id, exp)
@@ -3176,6 +3229,7 @@ func (sc allPalFX) Run(c *Char, _ []int32) bool {
 type bgPalFX palFX
 
 func (sc bgPalFX) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	sys.bgPalFX.clear()
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		palFX(sc).runSub(c, &sys.bgPalFX.PalFXDef, id, exp)
@@ -3225,6 +3279,7 @@ const (
 
 func (sc explod) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	var e *Explod
 	var i int
@@ -3414,6 +3469,7 @@ type modifyExplod explod
 
 func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	eid := int32(-1)
 	var expls []*Explod
@@ -3647,6 +3703,7 @@ const (
 
 func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	var e *Explod
 	var i int
@@ -3801,6 +3858,7 @@ func (sc afterImage) runSub(c *Char, ai *AfterImage,
 }
 func (sc afterImage) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	crun.aimg.clear()
 	crun.aimg.time = 1
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -3829,6 +3887,7 @@ const (
 
 func (sc afterImageTime) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		if id == afterImageTime_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
@@ -4235,6 +4294,7 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, id byte, exp []BytecodeExp) bool {
 }
 func (sc hitDef) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	crun.hitdef.clear()
 	crun.hitdef.playerNo = sys.workingState.playerNo
 	crun.hitdef.sparkno = ^c.gi().data.sparkno
@@ -4273,6 +4333,7 @@ const (
 
 func (sc reversalDef) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	crun.hitdef.clear()
 	crun.hitdef.playerNo = sys.workingState.playerNo
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -4336,6 +4397,7 @@ const (
 
 func (sc projectile) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	var p *Projectile
 	pt := PT_P1
@@ -4522,6 +4584,7 @@ const (
 
 func (sc width) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -4566,6 +4629,7 @@ const (
 
 func (sc sprPriority) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case sprPriority_value:
@@ -4591,6 +4655,7 @@ const (
 
 func (sc varSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case varSet_:
@@ -4616,6 +4681,7 @@ const (
 
 func (sc turn) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case turn_:
@@ -4642,6 +4708,7 @@ const (
 
 func (sc targetFacing) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	tar := crun.getTarget(-1)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -4686,6 +4753,7 @@ const (
 
 func (sc targetBind) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	tar := crun.getTarget(-1)
 	t := int32(1)
@@ -4737,6 +4805,7 @@ const (
 
 func (sc bindToTarget) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	tar := crun.getTarget(-1)
 	t, x, y, hmf := int32(1), float32(0), float32(math.NaN()), HMF_F
@@ -4792,6 +4861,7 @@ const (
 
 func (sc targetLifeAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	tar, a, k, d, r := crun.getTarget(-1), false, true, true, true
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -4839,6 +4909,7 @@ const (
 
 func (sc targetState) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	tar := crun.getTarget(-1)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -4879,6 +4950,7 @@ const (
 
 func (sc targetVelSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	tar := crun.getTarget(-1)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -4926,6 +4998,7 @@ const (
 
 func (sc targetVelAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	tar := crun.getTarget(-1)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -4972,6 +5045,7 @@ const (
 
 func (sc targetPowerAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	tar := crun.getTarget(-1)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -5011,6 +5085,7 @@ const (
 
 func (sc targetDrop) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	tar, eid, ko := crun.getTarget(-1), int32(-1), true
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -5050,6 +5125,7 @@ const (
 func (sc lifeAdd) Run(c *Char, _ []int32) bool {
 	a, k := false, true
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case lifeAdd_absolute:
@@ -5079,6 +5155,7 @@ const (
 
 func (sc lifeSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case lifeSet_value:
@@ -5104,6 +5181,7 @@ const (
 
 func (sc powerAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case powerAdd_value:
@@ -5129,6 +5207,7 @@ const (
 
 func (sc powerSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case powerSet_value:
@@ -5155,6 +5234,7 @@ const (
 
 func (sc hitVelSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case hitVelSet_x:
@@ -5188,6 +5268,7 @@ const (
 
 func (sc screenBound) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case screenBound_value:
@@ -5238,6 +5319,7 @@ const (
 
 func (sc posFreeze) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case posFreeze_value:
@@ -5266,6 +5348,8 @@ const (
 )
 
 func (sc envShake) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
+
 	sys.envShake.clear()
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -5297,6 +5381,7 @@ const (
 
 func (sc hitOverride) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var a, s, st, t int32 = 0, 0, -1, 1
 	f := false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -5347,6 +5432,7 @@ const (
 
 func (sc pause) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var t, mt int32 = 0, 0
 	sys.pausebg, sys.pauseendcmdbuftime = true, 0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -5391,6 +5477,7 @@ const (
 
 func (sc superPause) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var t, mt int32 = 30, 0
 	uh := true
 	sys.superanim, sys.superpmap.remap = crun.getAnim(100, true, false), nil
@@ -5464,6 +5551,7 @@ const (
 
 func (sc trans) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	crun.alpha[1] = 255
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -5502,6 +5590,7 @@ const (
 
 func (sc playerPush) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case playerPush_value:
@@ -5533,6 +5622,7 @@ const (
 
 func (sc stateTypeSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case stateTypeSet_statetype:
@@ -5563,6 +5653,7 @@ const (
 
 func (sc angleDraw) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case angleDraw_value:
@@ -5594,6 +5685,7 @@ const (
 
 func (sc angleSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case angleSet_value:
@@ -5619,6 +5711,7 @@ const (
 
 func (sc angleAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case angleAdd_value:
@@ -5644,6 +5737,7 @@ const (
 
 func (sc angleMul) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case angleMul_value:
@@ -5669,6 +5763,8 @@ const (
 )
 
 func (sc envColor) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
+
 	sys.envcol = [...]int32{255, 255, 255}
 	sys.envcol_time = 1
 	sys.envcol_under = false
@@ -5698,6 +5794,7 @@ const (
 
 func (sc displayToClipboard) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	params := []interface{}{}
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -5729,6 +5826,7 @@ type appendToClipboard displayToClipboard
 
 func (sc appendToClipboard) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	params := []interface{}{}
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -5764,6 +5862,7 @@ const (
 
 func (sc clearClipboard) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case clearClipboard_:
@@ -5791,6 +5890,7 @@ const (
 
 func (sc makeDust) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case makeDust_spacing:
@@ -5833,6 +5933,7 @@ const (
 
 func (sc attackDist) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -5860,6 +5961,7 @@ const (
 
 func (sc attackMulSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case attackMulSet_value:
@@ -5886,6 +5988,8 @@ const (
 )
 
 func (sc defenceMulSet) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
+
 	// For redirectID.
 	crun := c
 
@@ -5943,6 +6047,7 @@ const (
 
 func (sc fallEnvShake) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case fallEnvShake_:
@@ -5974,6 +6079,7 @@ const (
 
 func (sc hitFallDamage) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case hitFallDamage_:
@@ -5999,6 +6105,7 @@ const (
 
 func (sc hitFallVel) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case hitFallVel_:
@@ -6026,6 +6133,7 @@ const (
 
 func (sc hitFallSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	f, xv, yv := int32(-1), float32(math.NaN()), float32(math.NaN())
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -6063,6 +6171,7 @@ const (
 
 func (sc varRangeSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var first, last int32 = 0, 0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -6106,6 +6215,7 @@ const (
 
 func (sc remapPal) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	src := [...]int32{-1, -1}
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -6145,6 +6255,7 @@ const (
 
 func (sc stopSnd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case stopSnd_channel:
@@ -6176,6 +6287,7 @@ const (
 
 func (sc sndPan) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	ch, pan, x := int32(-1), float32(0), &crun.pos[0]
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -6212,6 +6324,7 @@ const (
 
 func (sc varRandom) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var v int32
 	var min, max int32 = 0, 1000
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -6245,6 +6358,7 @@ const (
 
 func (sc gravity) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case gravity_:
@@ -6272,6 +6386,7 @@ const (
 
 func (sc bindToParent) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	p := crun.parent()
 	var x, y float32 = 0, 0
@@ -6316,6 +6431,7 @@ type bindToRoot bindToParent
 
 func (sc bindToRoot) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var lclscround float32 = 1.0
 	r := crun.root()
 	var x, y float32 = 0, 0
@@ -6365,6 +6481,7 @@ const (
 
 func (sc removeExplod) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case removeExplod_id:
@@ -6391,6 +6508,7 @@ const (
 
 func (sc explodBindTime) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var eid, time int32 = -1, 0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -6420,6 +6538,7 @@ const (
 
 func (sc moveHitReset) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case moveHitReset_:
@@ -6445,6 +6564,7 @@ const (
 
 func (sc hitAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case hitAdd_value:
@@ -6471,6 +6591,7 @@ const (
 
 func (sc offset) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case offset_x:
@@ -6498,6 +6619,7 @@ const (
 
 func (sc victoryQuote) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var v int32 = -1
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -6528,6 +6650,7 @@ const (
 
 func (sc zoom) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	zoompos := [2]float32{0, 0}
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -6627,6 +6750,7 @@ const (
 
 func (sc assertInput) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case assertInput_flag:
@@ -6654,6 +6778,7 @@ const (
 
 func (sc dialogue) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	reset := true
 	force := false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -6692,6 +6817,7 @@ const (
 func (sc dizzyPointsAdd) Run(c *Char, _ []int32) bool {
 	a := false
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case dizzyPointsAdd_absolute:
@@ -6719,6 +6845,7 @@ const (
 
 func (sc dizzyPointsSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case dizzyPointsSet_value:
@@ -6744,6 +6871,7 @@ const (
 
 func (sc dizzySet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case dizzySet_value:
@@ -6769,6 +6897,7 @@ const (
 
 func (sc guardBreakSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case guardBreakSet_value:
@@ -6796,6 +6925,7 @@ const (
 func (sc guardPointsAdd) Run(c *Char, _ []int32) bool {
 	a := false
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case guardPointsAdd_absolute:
@@ -6823,6 +6953,7 @@ const (
 
 func (sc guardPointsSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case guardPointsSet_value:
@@ -6859,6 +6990,7 @@ const (
 
 // Takes the values given by Compiler.hitScaleSet and executes it.
 func (sc hitScaleSet) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	var crun = c
 	// Default values
 	var affects = []bool{false, false, false}
@@ -6979,6 +7111,7 @@ const (
 
 func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var top bool
 	var text string
 	var timemul float32 = 1
@@ -7030,6 +7163,7 @@ const (
 
 func (sc loadFile) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var path string
 	var data SaveData
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -7084,6 +7218,7 @@ const (
 
 func (sc mapSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var s string
 	var value float32
 	var scType int32
@@ -7124,6 +7259,7 @@ const (
 )
 
 func (sc matchRestart) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	var s string
 	reloadFlag := false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -7185,6 +7321,7 @@ const (
 )
 
 func (sc printToConsole) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	params := []interface{}{}
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -7216,6 +7353,7 @@ const (
 func (sc redLifeAdd) Run(c *Char, _ []int32) bool {
 	a := false
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case redLifeAdd_absolute:
@@ -7243,6 +7381,7 @@ const (
 
 func (sc redLifeSet) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case redLifeSet_value:
@@ -7271,6 +7410,7 @@ const (
 
 func (sc remapSprite) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	src := [...]int16{-1, -1}
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -7312,6 +7452,7 @@ const (
 )
 
 func (sc roundTimeAdd) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case roundTimeAdd_value:
@@ -7332,6 +7473,7 @@ const (
 )
 
 func (sc roundTimeSet) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case roundTimeSet_value:
@@ -7354,6 +7496,7 @@ const (
 
 func (sc saveFile) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var path string
 	var data SaveData
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
@@ -7405,6 +7548,7 @@ const (
 
 func (sc scoreAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case scoreAdd_value:
@@ -7433,6 +7577,7 @@ const (
 )
 
 func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	//crun := c
 	var cid int32
 	t, v := [3]int32{IErr, IErr, IErr}, [3]int32{IErr, IErr, IErr}
@@ -7487,6 +7632,7 @@ const (
 
 func (sc playBgm) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	var b bool
 	var bgm string
 	var loop, volume, loopstart, loopend int = 1, 100, 0, 0
@@ -7536,6 +7682,7 @@ const (
 
 func (sc targetDizzyPointsAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	tar, a := crun.getTarget(-1), false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -7578,6 +7725,7 @@ const (
 
 func (sc targetGuardPointsAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	tar, a := crun.getTarget(-1), false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -7620,6 +7768,7 @@ const (
 
 func (sc targetRedLifeAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	tar, a := crun.getTarget(-1), false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -7661,6 +7810,7 @@ const (
 
 func (sc targetScoreAdd) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	tar := crun.getTarget(-1)
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -7708,6 +7858,7 @@ const (
 
 func (sc text) Run(c *Char, _ []int32) bool {
 	crun := c
+	PrintSCBInfo(c)
 	params := []interface{}{}
 	var lclscround float32 = 1.0
 	ts := NewTextSprite()
@@ -8001,6 +8152,10 @@ type StateBytecode struct {
 
 func (sb *StateBytecode) clone() (result StateBytecode) {
 	result = *sb
+	result.stateDef = make(stateDef, len(sb.stateDef))
+	copy(result.stateDef, sb.stateDef)
+
+	result.ctrlsps = make([]int32, len(sb.ctrlsps))
 	copy(result.ctrlsps, sb.ctrlsps)
 	result.block = sb.block.clone()
 	return result
@@ -8133,6 +8288,7 @@ const (
 )
 
 func (sc loadState) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	//crun := c
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -8158,6 +8314,7 @@ const (
 )
 
 func (sc saveState) Run(c *Char, _ []int32) bool {
+	PrintSCBInfo(c)
 	//crun := c
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
