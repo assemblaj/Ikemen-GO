@@ -101,11 +101,7 @@ var sys = System{
 		rollbackTest:   true,
 		rollbackWindow: 8,
 	},
-	statePool: sync.Pool{
-		// New optionally specifies a function to generate
-		// a value when Get would otherwise return nil.
-		New: func() interface{} { return NewGameState() },
-	},
+	statePool: NewGameStatePool(),
 }
 
 type TeamMode int32
