@@ -1127,6 +1127,7 @@ func (ni *NetInput) Accept(port string) error {
 			ln := ni.ln
 			if conn, err := ln.AcceptTCP(); err == nil {
 				ni.conn = conn
+				sys.rollbackNetwork.remoteIp = conn.RemoteAddr().(*net.TCPAddr).IP.String()
 			}
 			ln.Close()
 		}()

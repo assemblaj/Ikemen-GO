@@ -388,9 +388,8 @@ type System struct {
 	rbTestEveryNFrames bool
 	rbTestEveryFrame   bool
 	rollbackNetwork    *RollbackSession
-
-	currentFight Fight
-	statePool    sync.Pool
+	currentFight       Fight
+	statePool          GameStatePool
 }
 
 type Fight struct {
@@ -2131,12 +2130,20 @@ func readI32(b []byte) int32 {
 	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24
 }
 
-func decodeInputs(bytes [][]byte) []InputBits {
-	ib := make([]InputBits, 0)
-	for i := 0; i < len(bytes); i++ {
-		ib = append(ib, InputBits(readI32(bytes[i])))
+func decodeInputs(buffer [][]byte) []InputBits {
+	var inputs = make([]InputBits, len(buffer))
+	for i, b := range buffer {
+		inputs[i] = InputBits(readI32(b))
 	}
-	return ib
+	return inputs
+}
+
+// HACK: So you won't be playing eachothers characters
+func reverseInputs(inputs []InputBits) []InputBits {
+	for i, j := 0, len(inputs)-1; i < j; i, j = i+1, j-1 {
+		inputs[i], inputs[j] = inputs[j], inputs[i]
+	}
+	return inputs
 }
 
 func writeI32(i32 int32) []byte {
@@ -2331,14 +2338,14 @@ func (s *System) runFrame() bool {
 	var result error
 	if s.rollbackNetwork.syncTest {
 		buffer = getInputs(0)
-		fmt.Printf("Buffer for input 1: %v", buffer)
+		//fmt.Printf("Buffer for input 1: %v", buffer)
 		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
 		buffer = getInputs(1)
-		fmt.Printf("Buffer for input 2: %v", buffer)
+		//fmt.Printf("Buffer for input 2: %v", buffer)
 		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
 	} else {
 		buffer = getInputs(0)
-		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(sys.rollbackNetwork.playerNo), buffer, len(buffer))
+		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(sys.rollbackNetwork.currentPlayer), buffer, len(buffer))
 	}
 
 	if result == nil {
@@ -2346,10 +2353,9 @@ func (s *System) runFrame() bool {
 		var values [][]byte
 		disconnectFlags := 0
 		values, result = s.rollbackNetwork.backend.SyncInput(&disconnectFlags)
-		fmt.Printf("values from ggpo-go %v\n", values)
-		//fmt.Println(values)
 		inputs := decodeInputs(values)
-		fmt.Println(inputs)
+		// HACK: So you won't play eachother's characters
+		inputs = reverseInputs(inputs)
 		if result == nil {
 			s.step = false
 			s.runShortcutScripts()
@@ -2392,7 +2398,7 @@ func (s *System) runFrame() bool {
 				return false
 			}
 
-			fmt.Println("Advancing game from within runframe.")
+			//fmt.Println("Advancing game from within runframe.")
 
 			err := s.rollbackNetwork.backend.AdvanceFrame()
 			if err != nil {
@@ -2588,12 +2594,12 @@ func (s *System) fight() (reload bool) {
 	sys.currentFight.oldTeamLeader = s.teamLeader
 
 	var running bool
-	if sys.rollbackNetwork != nil {
+	if sys.rollbackNetwork != nil && sys.netInput != nil {
 		if sys.rollbackNetwork.host != "" {
 			GameInitP1(2, 7550, 7600, sys.rollbackNetwork.host)
 			sys.rollbackNetwork.playerNo = 1
 		} else {
-			GameInitP2(2, 7600, 7550, "127.0.0.1")
+			GameInitP2(2, 7600, 7550, sys.rollbackNetwork.remoteIp)
 			sys.rollbackNetwork.playerNo = 2
 		}
 		if !sys.rollbackNetwork.IsConnected() {
@@ -2601,7 +2607,7 @@ func (s *System) fight() (reload bool) {
 		}
 		sys.netInput.Close()
 		sys.netInput = nil
-	} else {
+	} else if sys.netInput == nil {
 		GameInitSyncTest(2)
 	}
 

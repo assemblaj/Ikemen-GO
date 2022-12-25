@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"strconv"
+	"sync"
 	"time"
 
 	glfw "github.com/fyne-io/glfw-js"
@@ -878,10 +879,10 @@ func (gs *GameState) LoadState() {
 	sys.waitdown = gs.waitdown
 	sys.slowtime = gs.slowtime
 
-	//sys.shuttertime = gs.shuttertime
+	sys.shuttertime = gs.shuttertime
 	//sys.fadeintime = gs.fadeintime
 	//sys.fadeouttime = gs.fadeouttime
-	//sys.winskipped = gs.winskipped
+	sys.winskipped = gs.winskipped
 
 	sys.intro = gs.intro
 	sys.time = gs.Time
@@ -908,7 +909,7 @@ func (gs *GameState) LoadState() {
 	copy(sys.drawwh, gs.drawwh)
 	sys.accel = gs.accel
 	sys.clsnDraw = gs.clsnDraw
-	sys.statusDraw = gs.statusDraw
+	//sys.statusDraw = gs.statusDraw
 	sys.explodMax = gs.explodMax
 	copy(sys.workpal, gs.workpal)
 	sys.playerProjectileMax = gs.playerProjectileMax
@@ -1578,4 +1579,460 @@ func (gs *GameState) loadProjectileData() {
 
 	}
 
+}
+
+func PoolAlloc(item interface{}) (result interface{}) {
+	switch item.(type) {
+	case ([]float32):
+		return sys.statePool.float32SlicePool.Get()
+	case ([3]*HitScale):
+		return sys.statePool.hitscalePool.Get()
+	case ([][]CommandKey):
+		return sys.statePool.commandKey2dSlicePool.Get()
+	case ([]CommandKey):
+		return sys.statePool.coomandKeySlicePool.Get()
+	case ([]cmdElem):
+		return sys.statePool.cmdElemSlicePool.Get()
+	case ([]Command):
+		return sys.statePool.commandSlicePool.Get()
+	case ([]int32):
+		return sys.statePool.int32SlicePool.Get()
+	case ([]string):
+		return sys.statePool.stringSlicePool.Get()
+	case ([][]Command):
+		return sys.statePool.command2dSlicePool.Get()
+	case ([]CommandList):
+		return sys.statePool.commandListSlicePool.Get()
+	case ([]PalFX):
+		return sys.statePool.palFXSlicePool.Get()
+	case (map[int32][3]*HitScale):
+		return sys.statePool.hitscaleMapPool.Get()
+	case ([]*Char):
+		return sys.statePool.charPointerSlicePool.Get()
+	case (map[string]float32):
+		return sys.statePool.stringFloat32MapPool.Get()
+	case ([]AnimFrame):
+		return sys.statePool.animFrameSlicePool.Get()
+	case ([]int):
+		return sys.statePool.intSlicePool.Get()
+	case (BytecodeExp):
+		return sys.statePool.bytecodeExpPool.Get()
+	case ([]StateController):
+		return sys.statePool.stateControllerSlicePool.Get()
+	case (stateDef):
+		return sys.statePool.stateDefPool.Get()
+	case (map[string]int):
+		return sys.statePool.stringIntMapPool.Get()
+	case ([]Char):
+		return sys.statePool.charSlicePool.Get()
+	case ([]bool):
+		return sys.statePool.boolSlicePool.Get()
+	case ([][]float32):
+		return sys.statePool.float322dSlicePool.Get()
+	case ([][2]int32):
+		return sys.statePool.hitByPool.Get()
+	case ([]OverrideCharData):
+		return sys.statePool.overrideCharDataSlicePool.Get()
+	case ([][]int32):
+		return sys.statePool.int322dSlicePool.Get()
+	case ([][]string):
+		return sys.statePool.string2dSlicePool.Get()
+	case ([]*backGround):
+		return sys.statePool.backGroundPointerSlicePool.Get()
+	case ([]*bgCtrl):
+		return sys.statePool.bgCtrlPointerSlicePool.Get()
+	case ([]bgCtrl):
+		return sys.statePool.bgCtrlSlicePool.Get()
+	case ([]bgctNode):
+		return sys.statePool.bgctNodeSlicePool.Get()
+	case (AnimationTable):
+		return sys.statePool.animationTablePool.Get()
+	case ([]map[string]float32):
+		return sys.statePool.mapArraySlicePool.Get()
+	case (map[int32]*Char):
+		return sys.statePool.int32CharPointerMapPool.Get()
+	case ([]*HealthBar):
+		return sys.statePool.healthBarPointerSlicePool.Get()
+	case ([]*PowerBar):
+		return sys.statePool.powerBarPointerSlicePool.Get()
+	case ([]*GuardBar):
+		return sys.statePool.guardBarPointerSlicePool.Get()
+	case ([]*StunBar):
+		return sys.statePool.stunBarPointerSlicePool.Get()
+	case ([]*LifeBarFace):
+		return sys.statePool.lifeBarFacePointerSlicePool.Get()
+	case ([]*LifeBarName):
+		return sys.statePool.LifeBarNamePointerSlicePool.Get()
+	case (*HealthBar):
+		return sys.statePool.healthBarPointerPool.Get()
+	case (*PowerBar):
+		return sys.statePool.powerBarPointerPool.Get()
+	case (*GuardBar):
+		return sys.statePool.guardBarPointerPool.Get()
+	case (*StunBar):
+		return sys.statePool.stunBarPointerPool.Get()
+	case (*LifeBarFace):
+		return sys.statePool.lifeBarFacePointerPool.Get()
+	case (*LifeBarName):
+		return sys.statePool.LifeBarNamePointerPool.Get()
+	default:
+		return nil
+	}
+}
+
+func NewGameStatePool() GameStatePool {
+	return GameStatePool{
+		gameStatePool: sync.Pool{
+			New: func() interface{} {
+				return NewGameState()
+			},
+		},
+		commandListSlicePool: sync.Pool{
+			New: func() interface{} {
+				cls := make([]CommandList, MaxSimul*2+MaxAttachedChar)
+				return &cls
+			},
+		},
+		coomandKeySlicePool: sync.Pool{
+			New: func() interface{} {
+				cks := make([]CommandKey, 0, 8)
+				return &cks
+			},
+		},
+		commandKey2dSlicePool: sync.Pool{
+			New: func() interface{} {
+				cks := make([][]CommandKey, 0, 8)
+				return &cks
+			},
+		},
+		commandSlicePool: sync.Pool{
+			New: func() interface{} {
+				cs := make([]Command, 0, 8)
+				return &cs
+			},
+		},
+		command2dSlicePool: sync.Pool{
+			New: func() interface{} {
+				c := make([][]Command, 0, 8)
+				return &c
+			},
+		},
+		cmdElemSlicePool: sync.Pool{
+			New: func() interface{} {
+				c := make([]cmdElem, 0, 8)
+				return &c
+			},
+		},
+		boolSlicePool: sync.Pool{
+			New: func() interface{} {
+				bs := make([]bool, 0, 8)
+				return &bs
+			},
+		},
+		stringIntMapPool: sync.Pool{
+			New: func() interface{} {
+				si := make(map[string]int)
+				return &si
+			},
+		},
+
+		palFXSlicePool: sync.Pool{
+			New: func() interface{} {
+				p := make([]PalFX, 0, 128)
+				return &p
+			},
+		},
+
+		hitscaleMapPool: sync.Pool{
+			New: func() interface{} {
+				hs := make(map[int32][3]*HitScale)
+				return &hs
+			},
+		},
+		hitscalePool: sync.Pool{
+			New: func() interface{} {
+				hs := PreAllocHitScale()
+				return &hs
+			},
+		},
+
+		charPointerSlicePool: sync.Pool{
+			New: func() interface{} {
+				cs := make([]*Char, 0, 32)
+				return &cs
+			},
+		},
+		int32SlicePool: sync.Pool{
+			New: func() interface{} {
+				is := make([]int32, 0, 8)
+				return &is
+			},
+		},
+		float32SlicePool: sync.Pool{
+			New: func() interface{} {
+				f := make([]float32, 0, 8)
+				return &f
+			},
+		},
+
+		stringSlicePool: sync.Pool{
+			New: func() interface{} {
+				s := make([]string, 0, 8)
+				return &s
+			},
+		},
+		stringFloat32MapPool: sync.Pool{
+			New: func() interface{} {
+				sf := make(map[string]float32)
+				return &sf
+			},
+		},
+
+		animFrameSlicePool: sync.Pool{
+			New: func() interface{} {
+				af := make([]AnimFrame, 0, 8)
+				return &af
+			},
+		},
+		intSlicePool: sync.Pool{
+			New: func() interface{} {
+				is := make([]int, 0, 8)
+				return &is
+			},
+		},
+		bytecodeExpPool: sync.Pool{
+			New: func() interface{} {
+				be := make(BytecodeExp, 0, 8)
+				return &be
+			},
+		},
+		stateControllerSlicePool: sync.Pool{
+			New: func() interface{} {
+				sc := make([]StateController, 0, 8)
+				return &sc
+			},
+		},
+		stateDefPool: sync.Pool{
+			New: func() interface{} {
+				sd := make(stateDef, 0, 8)
+				return &sd
+			},
+		},
+		charSlicePool: sync.Pool{
+			New: func() interface{} {
+				cs := make([]Char, 0, 16)
+				return &cs
+			},
+		},
+
+		float322dSlicePool: sync.Pool{
+			New: func() interface{} {
+				f := make([][]float32, 0, 8)
+				return &f
+			},
+		},
+
+		hitByPool: sync.Pool{
+			New: func() interface{} {
+				hb := make([][2]int32, 0, 8)
+				return &hb
+			},
+		},
+		overrideCharDataSlicePool: sync.Pool{
+			New: func() interface{} {
+				ocd := make([]OverrideCharData, 0, 8)
+				return &ocd
+			},
+		},
+		int322dSlicePool: sync.Pool{
+			New: func() interface{} {
+				i := make([][]int32, 0, 8)
+				return &i
+			},
+		},
+
+		string2dSlicePool: sync.Pool{
+			New: func() interface{} {
+				s := make([][]string, 0, 8)
+				return &s
+			},
+		},
+		backGroundPointerSlicePool: sync.Pool{
+			New: func() interface{} {
+				bg := make([]*backGround, 0, 8)
+				return &bg
+			},
+		},
+		bgCtrlPointerSlicePool: sync.Pool{
+			New: func() interface{} {
+				bc := make([]*bgCtrl, 0, 8)
+				return &bc
+			},
+		},
+		bgCtrlSlicePool: sync.Pool{
+			New: func() interface{} {
+				bgc := make([]bgCtrl, 0, 8)
+				return &bgc
+			},
+		},
+		bgctNodeSlicePool: sync.Pool{
+			New: func() interface{} {
+				bg := make([]bgctNode, 0, 8)
+				return &bg
+			},
+		},
+		animationTablePool: sync.Pool{
+			New: func() interface{} {
+				at := make(AnimationTable)
+				return &at
+			},
+		},
+		mapArraySlicePool: sync.Pool{
+			New: func() interface{} {
+				ma := make([]map[string]float32, 0, 8)
+				return &ma
+			},
+		},
+		int32CharPointerMapPool: sync.Pool{
+			New: func() interface{} {
+				ic := make(map[int32]*Char)
+				return &ic
+			},
+		},
+
+		healthBarPointerSlicePool: sync.Pool{
+			New: func() interface{} {
+				hb := make([]*HealthBar, 0, 8)
+				return &hb
+			},
+		},
+		powerBarPointerSlicePool: sync.Pool{
+			New: func() interface{} {
+				pb := make([]*PowerBar, 0, 8)
+				return &pb
+			},
+		},
+		guardBarPointerSlicePool: sync.Pool{
+			New: func() interface{} {
+				gb := make([]*GuardBar, 0, 8)
+				return &gb
+			},
+		},
+		stunBarPointerSlicePool: sync.Pool{
+			New: func() interface{} {
+				sb := make([]*StunBar, 0, 8)
+				return &sb
+			},
+		},
+		lifeBarFacePointerSlicePool: sync.Pool{
+			New: func() interface{} {
+				lbf := make([]*LifeBarFace, 0, 8)
+				return &lbf
+			},
+		},
+		LifeBarNamePointerSlicePool: sync.Pool{
+			New: func() interface{} {
+				lbn := make([]*LifeBarName, 0, 8)
+				return &lbn
+			},
+		},
+		healthBarPointerPool: sync.Pool{
+			New: func() interface{} {
+				return &HealthBar{}
+			},
+		},
+		powerBarPointerPool: sync.Pool{
+			New: func() interface{} {
+				return &PowerBar{}
+			},
+		},
+		guardBarPointerPool: sync.Pool{
+			New: func() interface{} {
+				return &GuardBar{}
+			},
+		},
+		stunBarPointerPool: sync.Pool{
+			New: func() interface{} {
+				return &StunBar{}
+			},
+		},
+		lifeBarFacePointerPool: sync.Pool{
+			New: func() interface{} {
+				return &LifeBarFace{}
+			},
+		},
+		LifeBarNamePointerPool: sync.Pool{
+			New: func() interface{} {
+				return &LifeBarName{}
+			},
+		},
+	}
+}
+func PreAllocHitScale() [3]*HitScale {
+	h := [3]*HitScale{}
+	for i := 0; i < len(h); i++ {
+		h[i] = &HitScale{}
+	}
+	return h
+}
+
+type GameStatePool struct {
+	gameStatePool sync.Pool
+
+	commandListSlicePool  sync.Pool
+	coomandKeySlicePool   sync.Pool
+	commandKey2dSlicePool sync.Pool
+	commandSlicePool      sync.Pool
+	command2dSlicePool    sync.Pool
+	cmdElemSlicePool      sync.Pool
+	boolSlicePool         sync.Pool
+	stringIntMapPool      sync.Pool
+
+	palFXSlicePool sync.Pool
+
+	hitscaleMapPool sync.Pool
+	hitscalePool    sync.Pool
+
+	charPointerSlicePool sync.Pool
+	int32SlicePool       sync.Pool
+	float32SlicePool     sync.Pool
+
+	stringSlicePool      sync.Pool
+	stringFloat32MapPool sync.Pool
+
+	animFrameSlicePool       sync.Pool
+	intSlicePool             sync.Pool
+	bytecodeExpPool          sync.Pool
+	stateControllerSlicePool sync.Pool
+	stateDefPool             sync.Pool
+	charSlicePool            sync.Pool
+
+	float322dSlicePool sync.Pool
+
+	hitByPool                 sync.Pool
+	overrideCharDataSlicePool sync.Pool
+	int322dSlicePool          sync.Pool
+
+	string2dSlicePool          sync.Pool
+	backGroundPointerSlicePool sync.Pool
+	bgCtrlPointerSlicePool     sync.Pool
+	bgCtrlSlicePool            sync.Pool
+	bgctNodeSlicePool          sync.Pool
+	animationTablePool         sync.Pool
+	mapArraySlicePool          sync.Pool
+	int32CharPointerMapPool    sync.Pool
+
+	healthBarPointerSlicePool   sync.Pool
+	powerBarPointerSlicePool    sync.Pool
+	guardBarPointerSlicePool    sync.Pool
+	stunBarPointerSlicePool     sync.Pool
+	lifeBarFacePointerSlicePool sync.Pool
+	LifeBarNamePointerSlicePool sync.Pool
+
+	healthBarPointerPool   sync.Pool
+	powerBarPointerPool    sync.Pool
+	guardBarPointerPool    sync.Pool
+	stunBarPointerPool     sync.Pool
+	lifeBarFacePointerPool sync.Pool
+	LifeBarNamePointerPool sync.Pool
 }

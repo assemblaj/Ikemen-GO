@@ -9,20 +9,22 @@ import (
 )
 
 type RollbackSession struct {
-	backend      ggpo.Backend
-	saveStates   map[int]*GameState
-	now          int64
-	next         int64
-	players      []ggpo.Player
-	handles      []ggpo.PlayerHandle
-	rep          *os.File
-	connected    bool
-	host         string
-	playerNo     int
-	syncProgress int
-	synchronized bool
-	syncTest     bool
-	run          int
+	backend       ggpo.Backend
+	saveStates    map[int]*GameState
+	now           int64
+	next          int64
+	players       []ggpo.Player
+	handles       []ggpo.PlayerHandle
+	rep           *os.File
+	connected     bool
+	host          string
+	playerNo      int
+	syncProgress  int
+	synchronized  bool
+	syncTest      bool
+	run           int
+	remoteIp      string
+	currentPlayer int
 }
 
 func (r *RollbackSession) Close() {
@@ -44,40 +46,46 @@ func (g *RollbackSession) SaveGameState(stateID int) int {
 	// 	fmt.Println("Didn't use pool")
 	// 	gs = NewGameState()
 	// }
-	g.saveStates[stateID] = sys.statePool.Get().(*GameState)
+	g.saveStates[stateID] = sys.statePool.gameStatePool.Get().(*GameState)
 	g.saveStates[stateID].SaveState()
 
-	fmt.Printf("Save state for stateID: %d\n", stateID)
-	fmt.Println(g.saveStates[stateID])
+	// fmt.Printf("Save state for stateID: %d\n", stateID)
+	// fmt.Println(g.saveStates[stateID])
 
-	checksum := g.saveStates[stateID].Checksum()
-	fmt.Printf("checksum: %d\n", checksum)
-	return checksum
-	//return ggpo.DefaultChecksum
+	// checksum := g.saveStates[stateID].Checksum()
+	// fmt.Printf("checksum: %d\n", checksum)
+	// return checksum
+	return ggpo.DefaultChecksum
 }
 
 func (g *RollbackSession) LoadGameState(stateID int) {
-	fmt.Printf("Loaded state for stateID: %d\n", stateID)
-	fmt.Println(g.saveStates[stateID])
+	// fmt.Printf("Loaded state for stateID: %d\n", stateID)
+	// fmt.Println(g.saveStates[stateID])
 
-	checksum := g.saveStates[stateID].Checksum()
-	fmt.Printf("checksum: %d\n", checksum)
+	// checksum := g.saveStates[stateID].Checksum()
+	// fmt.Printf("checksum: %d\n", checksum)
 
 	g.saveStates[stateID].LoadState()
-	sys.statePool.Put(g.saveStates[stateID])
+	sys.statePool.gameStatePool.Put(g.saveStates[stateID])
 	//sys.gameStatePool <- g.saveStates[stateID]
 }
 
 func (g *RollbackSession) AdvanceFrame(flags int) {
 	var discconectFlags int
+	//Lua code executed before drawing fade, clsns and debug
+	for _, str := range sys.commonLua {
+		if err := sys.luaLState.DoString(str); err != nil {
+			sys.luaLState.RaiseError(err.Error())
+		}
+	}
 
 	// Make sure we fetch the inputs from GGPO and use these to update
 	// the game state instead of reading from the keyboard.
 	inputs, result := g.backend.SyncInput(&discconectFlags)
 	if result == nil {
-		fmt.Println("Advancing frame from within callback.")
+		//fmt.Println("Advancing frame from within callback.")
 		input := decodeInputs(inputs)
-		fmt.Printf("Inputs: %v\n", input)
+		//fmt.Printf("Inputs: %v\n", input)
 
 		sys.step = false
 		sys.runShortcutScripts()
@@ -117,8 +125,12 @@ func (g *RollbackSession) OnEvent(info *ggpo.Event) {
 		fmt.Println("EventCodeRunning")
 	case ggpo.EventCodeDisconnectedFromPeer:
 		fmt.Println("EventCodeDisconnectedFromPeer")
+		sys.currentFight.fin = true
+		sys.endMatch = true
+		sys.esc = true
+		disconnectMessage := fmt.Sprintf("Player %d disconnected.", info.Player)
+		ShowInfoDialog(disconnectMessage, "Disconenection")
 	case ggpo.EventCodeTimeSync:
-		fmt.Println("I'm sleeping\n\n\n\n")
 		time.Sleep(time.Millisecond * time.Duration(info.FramesAhead/60))
 	case ggpo.EventCodeConnectionInterrupted:
 		fmt.Println("EventCodeconnectionInterrupted")
@@ -140,7 +152,8 @@ func encodeInputs(inputs InputBits) []byte {
 }
 
 func GameInitP1(numPlayers int, localPort int, remoteIp int, host string) {
-	ggpo.EnableLogger()
+	//ggpo.EnableLogger()
+	ggpo.DisableLogger()
 
 	var inputBits InputBits = 0
 	var inputSize int = len(encodeInputs(inputBits))
@@ -151,10 +164,8 @@ func GameInitP1(numPlayers int, localPort int, remoteIp int, host string) {
 	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player2)
 
 	peer := ggpo.NewPeer(sys.rollbackNetwork, localPort, numPlayers, inputSize)
-	//peer := ggpo.NewSyncTest(sys.rollbackNetwork, numPlayers, 8, inputSize)
 	sys.rollbackNetwork.backend = &peer
 
-	//
 	peer.InitializeConnection()
 	peer.Start()
 
@@ -170,13 +181,14 @@ func GameInitP1(numPlayers int, localPort int, remoteIp int, host string) {
 		panic("panic")
 	}
 	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle2)
+	sys.rollbackNetwork.currentPlayer = int(handle)
 
 	peer.SetDisconnectTimeout(3000)
 	peer.SetDisconnectNotifyStart(1000)
 }
 
 func GameInitP2(numPlayers int, localPort int, remoteIp int, host string) {
-	ggpo.EnableLogger()
+	ggpo.DisableLogger()
 
 	var inputBits InputBits = 0
 	var inputSize int = len(encodeInputs(inputBits))
@@ -187,10 +199,8 @@ func GameInitP2(numPlayers int, localPort int, remoteIp int, host string) {
 	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player2)
 
 	peer := ggpo.NewPeer(sys.rollbackNetwork, localPort, numPlayers, inputSize)
-	//peer := ggpo.NewSyncTest(sys.rollbackNetwork, numPlayers, 8, inputSize)
 	sys.rollbackNetwork.backend = &peer
 
-	//
 	peer.InitializeConnection()
 	peer.Start()
 
@@ -206,6 +216,7 @@ func GameInitP2(numPlayers int, localPort int, remoteIp int, host string) {
 		panic("panic")
 	}
 	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle2)
+	sys.rollbackNetwork.currentPlayer = int(handle2)
 
 	peer.SetDisconnectTimeout(3000)
 	peer.SetDisconnectNotifyStart(1000)
