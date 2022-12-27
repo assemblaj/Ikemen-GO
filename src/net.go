@@ -9,22 +9,23 @@ import (
 )
 
 type RollbackSession struct {
-	backend       ggpo.Backend
-	saveStates    map[int]*GameState
-	now           int64
-	next          int64
-	players       []ggpo.Player
-	handles       []ggpo.PlayerHandle
-	rep           *os.File
-	connected     bool
-	host          string
-	playerNo      int
-	syncProgress  int
-	synchronized  bool
-	syncTest      bool
-	run           int
-	remoteIp      string
-	currentPlayer int
+	backend             ggpo.Backend
+	saveStates          map[int]*GameState
+	now                 int64
+	next                int64
+	players             []ggpo.Player
+	handles             []ggpo.PlayerHandle
+	rep                 *os.File
+	connected           bool
+	host                string
+	playerNo            int
+	syncProgress        int
+	synchronized        bool
+	syncTest            bool
+	run                 int
+	remoteIp            string
+	currentPlayer       int
+	currentPlayerHandle ggpo.PlayerHandle
 }
 
 func (r *RollbackSession) Close() {
@@ -151,7 +152,7 @@ func encodeInputs(inputs InputBits) []byte {
 	return writeI32(int32(inputs))
 }
 
-func GameInitP1(numPlayers int, localPort int, remoteIp int, host string) {
+func GameInitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	//ggpo.EnableLogger()
 	ggpo.DisableLogger()
 
@@ -159,7 +160,7 @@ func GameInitP1(numPlayers int, localPort int, remoteIp int, host string) {
 	var inputSize int = len(encodeInputs(inputBits))
 
 	player := ggpo.NewLocalPlayer(20, 1)
-	player2 := ggpo.NewRemotePlayer(20, 2, host, remoteIp)
+	player2 := ggpo.NewRemotePlayer(20, 2, remoteIp, remotePort)
 	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player)
 	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player2)
 
@@ -182,18 +183,19 @@ func GameInitP1(numPlayers int, localPort int, remoteIp int, host string) {
 	}
 	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle2)
 	sys.rollbackNetwork.currentPlayer = int(handle)
+	sys.rollbackNetwork.currentPlayerHandle = handle
 
 	peer.SetDisconnectTimeout(3000)
 	peer.SetDisconnectNotifyStart(1000)
 }
 
-func GameInitP2(numPlayers int, localPort int, remoteIp int, host string) {
+func GameInitP2(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	ggpo.DisableLogger()
 
 	var inputBits InputBits = 0
 	var inputSize int = len(encodeInputs(inputBits))
 
-	player := ggpo.NewRemotePlayer(20, 1, host, remoteIp)
+	player := ggpo.NewRemotePlayer(20, 1, remoteIp, remotePort)
 	player2 := ggpo.NewLocalPlayer(20, 2)
 	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player)
 	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player2)
@@ -217,6 +219,7 @@ func GameInitP2(numPlayers int, localPort int, remoteIp int, host string) {
 	}
 	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle2)
 	sys.rollbackNetwork.currentPlayer = int(handle2)
+	sys.rollbackNetwork.currentPlayerHandle = handle2
 
 	peer.SetDisconnectTimeout(3000)
 	peer.SetDisconnectNotifyStart(1000)

@@ -2334,14 +2334,12 @@ func (s *System) runFrame() bool {
 	var result error
 	if s.rollbackNetwork.syncTest {
 		buffer = getInputs(0)
-		//fmt.Printf("Buffer for input 1: %v", buffer)
 		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
 		buffer = getInputs(1)
-		//fmt.Printf("Buffer for input 2: %v", buffer)
 		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
 	} else {
 		buffer = getInputs(0)
-		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(sys.rollbackNetwork.currentPlayer), buffer, len(buffer))
+		result = s.rollbackNetwork.backend.AddLocalInput(sys.rollbackNetwork.currentPlayerHandle, buffer, len(buffer))
 	}
 
 	if result == nil {
@@ -2350,8 +2348,6 @@ func (s *System) runFrame() bool {
 		disconnectFlags := 0
 		values, result = s.rollbackNetwork.backend.SyncInput(&disconnectFlags)
 		inputs := decodeInputs(values)
-		// HACK: So you won't play eachother's characters
-		inputs = reverseInputs(inputs)
 		if result == nil {
 			s.step = false
 			s.runShortcutScripts()
@@ -2592,18 +2588,18 @@ func (s *System) fight() (reload bool) {
 	var running bool
 	if sys.rollbackNetwork != nil && sys.netInput != nil {
 		if sys.rollbackNetwork.host != "" {
-			GameInitP1(2, 7550, 7600, sys.rollbackNetwork.host)
-			sys.rollbackNetwork.playerNo = 1
-		} else {
-			GameInitP2(2, 7600, 7550, sys.rollbackNetwork.remoteIp)
+			GameInitP2(2, 7550, 7600, sys.rollbackNetwork.host)
 			sys.rollbackNetwork.playerNo = 2
+		} else {
+			GameInitP1(2, 7600, 7550, sys.rollbackNetwork.remoteIp)
+			sys.rollbackNetwork.playerNo = 1
 		}
 		if !sys.rollbackNetwork.IsConnected() {
 			sys.rollbackNetwork.backend.Idle(0)
 		}
 		sys.netInput.Close()
 		sys.netInput = nil
-	} else if sys.netInput == nil {
+	} else if sys.netInput == nil && sys.rollbackNetwork == nil {
 		GameInitSyncTest(2)
 	}
 
@@ -2625,8 +2621,9 @@ func (s *System) fight() (reload bool) {
 		if !running {
 			break
 		}
-		sys.update()
+
 		sys.render()
+		sys.update()
 	}
 
 	return false
