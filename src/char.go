@@ -3378,7 +3378,7 @@ func (c *Char) isHelper(hid BytecodeValue) BytecodeValue {
 	return BytecodeBool(c.helperIndex != 0 && (id == math.MinInt32 || c.helperId == id))
 }
 func (c *Char) isHost() bool {
-	return sys.netInput != nil && sys.netInput.host
+	return (sys.netInput != nil && sys.netInput.host) || (sys.rollbackNetwork != nil && sys.rollbackNetwork.host == "")
 }
 func (c *Char) leftEdge() float32 {
 	return sys.cam.ScreenPos[0] / c.localscl
@@ -6673,7 +6673,14 @@ func (cl *CharList) action(ib []InputBits, x float32, cvmin, cvmax,
 			for _, c := range p {
 				if c.helperIndex == 0 ||
 					c.helperIndex > 0 && &c.cmd[0] != &r.cmd[0] {
-					c.cmd[0].Buffer.InputBits(ib[i], int32(c.facing))
+					if i < len(ib) {
+						// if we have an input from the players
+						// update the command buffer based on that.
+						c.cmd[0].Buffer.InputBits(ib[i], int32(c.facing))
+					} else {
+						// Otherwise, this will ostensibly update the buffers based on AIInput
+						c.cmd[0].Input(c.key, int32(c.facing), sys.com[i], c.inputFlag)
+					}
 					hp := c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0
 					buftime := Btoi(hp && c.gi().ver[0] != 1)
 					if sys.super > 0 {

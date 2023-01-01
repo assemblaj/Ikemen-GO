@@ -608,7 +608,9 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "commandNew", func(l *lua.LState) int {
-		l.Push(newUserData(l, NewCommandList(NewCommandBuffer())))
+		cl := NewCommandList(NewCommandBuffer())
+		sys.commandLists = append(sys.commandLists, cl)
+		l.Push(newUserData(l, cl))
 		return 1
 	})
 	luaRegister(l, "commonLuaInsert", func(l *lua.LState) int {
@@ -1635,6 +1637,11 @@ func systemScriptInit(l *lua.LState) {
 		if !sys.update() {
 			l.RaiseError("<game end>")
 		}
+		return 0
+	})
+	luaRegister(l, "rollbackTable", func(*lua.LState) int {
+		fmt.Println("Rolled back table.")
+		sys.luaTables = append(sys.luaTables, tableArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "reload", func(*lua.LState) int {

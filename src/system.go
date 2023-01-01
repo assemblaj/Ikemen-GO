@@ -101,7 +101,9 @@ var sys = System{
 		rollbackTest:   true,
 		rollbackWindow: 8,
 	},
-	statePool: NewGameStatePool(),
+	statePool:    NewGameStatePool(),
+	luaTables:    make([]*lua.LTable, 0),
+	commandLists: make([]*CommandList, 0),
 }
 
 type TeamMode int32
@@ -386,6 +388,10 @@ type System struct {
 	rollbackNetwork    *RollbackSession
 	currentFight       Fight
 	statePool          GameStatePool
+	luaStringVars      map[string]string
+	luaNumVars         map[string]float32
+	luaTables          []*lua.LTable
+	commandLists       []*CommandList
 }
 
 type Fight struct {
@@ -2339,6 +2345,7 @@ func (s *System) runFrame() bool {
 		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
 	} else {
 		buffer = getInputs(0)
+
 		result = s.rollbackNetwork.backend.AddLocalInput(sys.rollbackNetwork.currentPlayerHandle, buffer, len(buffer))
 	}
 

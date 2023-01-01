@@ -814,6 +814,11 @@ type GameState struct {
 
 	// 11/5/2022
 	fight Fight
+
+	debugWC *Char
+
+	commandLists []*CommandList
+	luaTables    []*lua.LTable
 }
 
 func NewGameState() *GameState {
@@ -1038,6 +1043,11 @@ func (gs *GameState) LoadState() {
 
 	// 11/5/22
 	sys.currentFight = gs.fight
+
+	sys.debugWC = gs.debugWC
+
+	sys.commandLists = gs.commandLists
+	sys.luaTables = gs.luaTables
 }
 
 func (gs *GameState) SaveState() {
@@ -1281,8 +1291,34 @@ func (gs *GameState) SaveState() {
 
 	// 11/5/2022
 	gs.fight = sys.currentFight.clone()
+
+	debugWC := sys.debugWC.clone()
+	gs.debugWC = &debugWC
+	gs.commandLists = make([]*CommandList, len(sys.commandLists))
+	for i := 0; i < len(sys.commandLists); i++ {
+		cl := sys.commandLists[i].clone()
+		gs.commandLists[i] = &cl
+	}
+	gs.luaTables = make([]*lua.LTable, len(sys.luaTables))
+	for i := 0; i < len(sys.luaTables); i++ {
+		gs.luaTables[i] = gs.cloneLuaTable(sys.luaTables[i])
+	}
+
 }
 
+func (gs *GameState) cloneLuaTable(s *lua.LTable) *lua.LTable {
+	tbl := sys.luaLState.NewTable()
+	s.ForEach(func(key lua.LValue, value lua.LValue) {
+		switch value.Type() {
+		case lua.LTTable:
+			innerTbl := value.(*lua.LTable)
+			tbl.RawSet(key, gs.cloneLuaTable(innerTbl))
+		default:
+			tbl.RawSet(key, value)
+		}
+	})
+	return tbl
+}
 func (gs *GameState) savePalFX() {
 	gs.allPalFX = sys.allPalFX
 	gs.bgPalFX = sys.bgPalFX
