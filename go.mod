@@ -16,7 +16,7 @@ require (
 
 require (
 	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
-	github.com/assemblaj/GGPO-Go v0.0.0-20220917203443-6ff0d5c401d0 // indirect
+	github.com/assemblaj/GGPO-Go v0.0.0-20230105003048-7a5710c53e13 // indirect
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6 // indirect
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20220320163800-277f93cfa958 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect

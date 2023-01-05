@@ -26,6 +26,40 @@ type RollbackSession struct {
 	remoteIp            string
 	currentPlayer       int
 	currentPlayerHandle ggpo.PlayerHandle
+	loopTimer           LoopTimer
+}
+type LoopTimer struct {
+	lastAdvantage      float32
+	usPergameLoop      int
+	usExtraToWait      int
+	framesToSpreadWait int
+	waitCount          time.Duration
+	timeWait           time.Duration
+	waitTotal          time.Duration
+}
+
+func NewLoopTimer(fps uint32, framesToSpread uint32) LoopTimer {
+	return LoopTimer{
+		framesToSpreadWait: int(framesToSpread),
+		usPergameLoop:      1000000 / int(fps),
+	}
+}
+
+func (lt *LoopTimer) OnGGPOTimeSyncEvent(framesAhead float32) {
+	lt.waitTotal = time.Duration(float32(time.Second/60) * framesAhead)
+	lt.lastAdvantage = float32(time.Second/60) * framesAhead
+	lt.lastAdvantage = lt.lastAdvantage / 2
+	lt.timeWait = time.Duration(lt.lastAdvantage) / time.Duration(lt.framesToSpreadWait)
+	lt.waitCount = time.Duration(lt.framesToSpreadWait)
+}
+
+func (lt *LoopTimer) usToWaitThisLoop() int64 {
+	if lt.waitCount > 0 {
+		// lt.waitTotal -= lt.timeWait
+		lt.waitCount--
+		return int64(lt.timeWait)
+	}
+	return 0
 }
 
 func (r *RollbackSession) Close() {
@@ -106,7 +140,7 @@ func (g *RollbackSession) AdvanceFrame(flags int) {
 		}
 
 		sys.updateCamera()
-		err := g.backend.AdvanceFrame()
+		err := g.backend.AdvanceFrame(ggpo.DefaultChecksum)
 		if err != nil {
 			panic(err)
 		}
@@ -132,7 +166,8 @@ func (g *RollbackSession) OnEvent(info *ggpo.Event) {
 		disconnectMessage := fmt.Sprintf("Player %d disconnected.", info.Player)
 		ShowInfoDialog(disconnectMessage, "Disconenection")
 	case ggpo.EventCodeTimeSync:
-		time.Sleep(time.Millisecond * time.Duration(info.FramesAhead/60))
+		fmt.Printf("EventCodeTimeSync: FramesAhead %f TimeSyncPeriodInFrames: %d\n", info.FramesAhead, info.TimeSyncPeriodInFrames)
+		g.loopTimer.OnGGPOTimeSyncEvent(info.FramesAhead)
 	case ggpo.EventCodeConnectionInterrupted:
 		fmt.Println("EventCodeconnectionInterrupted")
 	case ggpo.EventCodeConnectionResumed:
@@ -145,8 +180,8 @@ func NewRollbackSesesion() RollbackSession {
 	r.saveStates = make(map[int]*GameState)
 	r.players = make([]ggpo.Player, 9)
 	r.handles = make([]ggpo.PlayerHandle, 9)
+	r.loopTimer = NewLoopTimer(60, 200)
 	return r
-
 }
 func encodeInputs(inputs InputBits) []byte {
 	return writeI32(int32(inputs))
@@ -154,7 +189,13 @@ func encodeInputs(inputs InputBits) []byte {
 
 func GameInitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	//ggpo.EnableLogger()
-	ggpo.DisableLogger()
+	ggpo.EnableLogger()
+	logFileName := "Player1.log"
+	f, err := os.OpenFile(logFileName, os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		panic(err)
+	}
+	ggpo.SetLoggerOutput(f)
 
 	var inputBits InputBits = 0
 	var inputSize int = len(encodeInputs(inputBits))
@@ -190,7 +231,13 @@ func GameInitP1(numPlayers int, localPort int, remotePort int, remoteIp string) 
 }
 
 func GameInitP2(numPlayers int, localPort int, remotePort int, remoteIp string) {
-	ggpo.DisableLogger()
+	ggpo.EnableLogger()
+	logFileName := "Player1.log"
+	f, err := os.OpenFile(logFileName, os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		panic(err)
+	}
+	ggpo.SetLoggerOutput(f)
 
 	var inputBits InputBits = 0
 	var inputSize int = len(encodeInputs(inputBits))
@@ -241,7 +288,7 @@ func GameInitSyncTest(numPlayers int) {
 	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player2)
 
 	//peer := ggpo.NewPeer(sys.rollbackNetwork, localPort, numPlayers, inputSize)
-	peer := ggpo.NewSyncTest(sys.rollbackNetwork, numPlayers, 8, inputSize)
+	peer := ggpo.NewSyncTest(sys.rollbackNetwork, numPlayers, 8, inputSize, true)
 	sys.rollbackNetwork.backend = &peer
 
 	//

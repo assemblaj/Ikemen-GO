@@ -2398,8 +2398,7 @@ func (s *System) runFrame() bool {
 			}
 
 			//fmt.Println("Advancing game from within runframe.")
-
-			err := s.rollbackNetwork.backend.AdvanceFrame()
+			err := s.rollbackNetwork.backend.AdvanceFrame(ggpo.DefaultChecksum)
 			if err != nil {
 				panic(err)
 			}
@@ -2615,7 +2614,8 @@ func (s *System) fight() (reload bool) {
 	///fin := false
 	for !s.endMatch {
 
-		s.rollbackNetwork.now = time.Now().UnixMilli()
+		s.rollbackNetwork.now = time.Now().UnixNano()
+		//if s.rollbackNetwork.now > s.rollbackNetwork.next {
 		err := s.rollbackNetwork.backend.Idle(
 			int(math.Max(0, float64(s.rollbackNetwork.next-s.rollbackNetwork.now-1))))
 		if err != nil {
@@ -2623,12 +2623,13 @@ func (s *System) fight() (reload bool) {
 		}
 
 		running = sys.runFrame()
-		s.rollbackNetwork.next = s.rollbackNetwork.now + 1000/60
 
+		//	s.rollbackNetwork.next = s.rollbackNetwork.now + s.rollbackNetwork.loopTimer.usToWaitThisLoop()
+		time.Sleep(time.Duration(s.rollbackNetwork.loopTimer.usToWaitThisLoop()))
 		if !running {
 			break
 		}
-
+		//}
 		sys.render()
 		sys.update()
 	}

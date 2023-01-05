@@ -52,6 +52,8 @@ github.com/assemblaj/GGPO-Go v0.0.0-20220913162637-350cdad1d481 h1:pCg72Btm8FnRA
 github.com/assemblaj/GGPO-Go v0.0.0-20220913162637-350cdad1d481/go.mod h1:28Ba8KjCRBrPuymPmUzOk0MSoFAhy4afRB1uxN0iYMA=
 github.com/assemblaj/GGPO-Go v0.0.0-20220917203443-6ff0d5c401d0 h1:+/r08hZNAjpYUIO10qCf0f8JXbLuVthVgOUb7lpGOH0=
 github.com/assemblaj/GGPO-Go v0.0.0-20220917203443-6ff0d5c401d0/go.mod h1:28Ba8KjCRBrPuymPmUzOk0MSoFAhy4afRB1uxN0iYMA=
+github.com/assemblaj/GGPO-Go v0.0.0-20230105003048-7a5710c53e13 h1:Mrjc/AY1VTZuCo5DwjDVZHTgrW7phRAShL12gweLgbw=
+github.com/assemblaj/GGPO-Go v0.0.0-20230105003048-7a5710c53e13/go.mod h1:28Ba8KjCRBrPuymPmUzOk0MSoFAhy4afRB1uxN0iYMA=
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
 github.com/bketelsen/crypt v0.0.4/go.mod h1:aI6NrJ0pMGgvZKL1iVgXLnfIFJtfV+bKCoqOes/6LfM=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
