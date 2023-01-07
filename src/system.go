@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	ggpo "github.com/assemblaj/GGPO-Go/pkg"
+	ggpo "github.com/assemblaj/ggpo"
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/speaker"
 	gl "github.com/fyne-io/gl-js"
@@ -956,6 +956,46 @@ func (s *System) awaitWithoutDraw(fps int) {
 	}
 }
 
+func (s *System) rollbackAwait(wait time.Duration) bool {
+	if !s.frameSkip {
+		// Render the finished frame
+		unbindFB()
+		s.window.Window.SwapBuffers()
+		// Begin the next frame
+		bindFB()
+	}
+	s.runMainThreadTask()
+	now := time.Now()
+	diff := s.redrawWait.nextTime.Sub(now)
+	s.redrawWait.nextTime = s.redrawWait.nextTime.Add(wait)
+	switch {
+	case diff >= 0 && diff < wait+2*time.Millisecond:
+		time.Sleep(diff)
+		fallthrough
+	case now.Sub(s.redrawWait.lastDraw) > 250*time.Millisecond:
+		fallthrough
+	case diff >= -17*time.Millisecond:
+		s.redrawWait.lastDraw = now
+		s.frameSkip = false
+	default:
+		if diff < -150*time.Millisecond {
+			s.redrawWait.nextTime = now.Add(wait)
+		}
+		s.frameSkip = true
+	}
+	s.eventUpdate()
+	if !s.frameSkip {
+		//var width, height = glfw.GetCurrentContext().GetFramebufferSize()
+		//gl.Viewport(0, 0, int32(width), int32(height))
+		gl.Viewport(0, 0, int(s.scrrect[2]), int(s.scrrect[3]))
+		if s.netInput == nil && (s.replayState == nil && s.playReplayState || s.saveReplayState) && s.rollbackNetwork == nil {
+			gl.Clear(gl.COLOR_BUFFER_BIT)
+		}
+	}
+	return !s.gameEnd
+
+}
+
 func (s *System) await(fps int) bool {
 	if !s.frameSkip {
 		// Render the finished frame
@@ -995,6 +1035,11 @@ func (s *System) await(fps int) bool {
 	}
 	return !s.gameEnd
 }
+func (s *System) rollbackUpdate(wait time.Duration) bool {
+	s.frameCounter++
+	return s.rollbackAwait(wait)
+}
+
 func (s *System) update() bool {
 	s.frameCounter++
 	if s.fileInput != nil {
@@ -1016,6 +1061,9 @@ func (s *System) update() bool {
 		} else if s.playReplayState {
 			return sys.replayState.PlayUpdate()
 		}
+	}
+	if s.rollbackNetwork != nil {
+		return s.await(s.rollbackNetwork.FPS)
 	}
 	return s.await(FPS)
 }
@@ -2624,14 +2672,26 @@ func (s *System) fight() (reload bool) {
 
 		running = sys.runFrame()
 
-		//	s.rollbackNetwork.next = s.rollbackNetwork.now + s.rollbackNetwork.loopTimer.usToWaitThisLoop()
-		time.Sleep(time.Duration(s.rollbackNetwork.loopTimer.usToWaitThisLoop()))
+		//s.rollbackNetwork.next = s.rollbackNetwork.now + s.rollbackNetwork.loopTimer.usToWaitThisLoop()
+		//time.Sleep(time.Duration(s.rollbackNetwork.loopTimer.usToWaitThisLoop()))
+		// if s.rollbackNetwork.currentPlayer == 1 {
+		// 	stats, _ := s.rollbackNetwork.backend.GetNetworkStats(ggpo.PlayerHandle(2))
+		// 	avgDif := stats.Timesync.AvgRemoteFramesBehind - stats.Timesync.AvgLocalFramesBehind
+		// 	newFPS := 60 + (avgDif / 2)
+		// 	s.rollbackNetwork.FPS = int(newFPS)
+		// } else if s.rollbackNetwork.currentPlayer == 2 {
+		// 	stats, _ := s.rollbackNetwork.backend.GetNetworkStats(ggpo.PlayerHandle(1))
+		// 	avgDif := stats.Timesync.AvgRemoteFramesBehind - stats.Timesync.AvgLocalFramesBehind
+		// 	newFPS := 60 + (avgDif / 2)
+		// 	s.rollbackNetwork.FPS = int(newFPS)
+		// }
+
 		if !running {
 			break
 		}
-		//}
 		sys.render()
-		sys.update()
+		sys.rollbackUpdate(s.rollbackNetwork.loopTimer.usToWaitThisLoop())
+		//}
 	}
 
 	return false
