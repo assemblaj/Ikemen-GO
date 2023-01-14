@@ -74,36 +74,58 @@ func (r *RollbackSession) IsConnected() bool {
 }
 
 func (g *RollbackSession) SaveGameState(stateID int) int {
-	// gs := NewGameState()
-	// if len(sys.gameStatePool) > 0 {
-	// 	fmt.Println("UsedPool")
-	// 	gs = <-sys.gameStatePool
-	// } else {
-	// 	fmt.Println("Didn't use pool")
-	// 	gs = NewGameState()
-	// }
+	sys.rollbackStateID = stateID
+	oldest := stateID + 1%(MaxSaveStates+2)
+	if _, ok := sys.arenaSaveMap[oldest]; ok {
+		sys.arenaSaveMap[oldest].Free()
+		sys.arenaSaveMap[oldest] = nil
+		delete(sys.arenaSaveMap, oldest)
+	}
+	if _, ok := sys.arenaSaveMap[stateID]; ok {
+		sys.arenaSaveMap[stateID].Free()
+		sys.arenaSaveMap[stateID] = nil
+		delete(sys.arenaSaveMap, stateID)
+	}
+
 	g.saveStates[stateID] = sys.statePool.gameStatePool.Get().(*GameState)
-	g.saveStates[stateID].SaveState()
+	g.saveStates[stateID].SaveState(stateID)
 
-	// fmt.Printf("Save state for stateID: %d\n", stateID)
-	// fmt.Println(g.saveStates[stateID])
+	//fmt.Printf("Save state for stateID: %d\n", stateID)
+	//fmt.Println(g.saveStates[stateID])
 
-	// checksum := g.saveStates[stateID].Checksum()
-	// fmt.Printf("checksum: %d\n", checksum)
-	// return checksum
+	//checksum := g.saveStates[stateID].Checksum()
+	//fmt.Printf("checksum: %d\n", checksum)
+	//return checksum
 	return ggpo.DefaultChecksum
 }
 
+var lastLoadedFrame int = -1
+
 func (g *RollbackSession) LoadGameState(stateID int) {
+	// if _, ok := sys.arenaLoadMap[stateID]; ok {
+	// 	sys.arenaLoadMap[stateID].Free()
+	// 	sys.arenaLoadMap[stateID] = nil
+	// 	delete(sys.arenaLoadMap, stateID)
+	// }
+	for sid := range sys.arenaLoadMap {
+		if sid != lastLoadedFrame {
+			sys.arenaLoadMap[sid].Free()
+			sys.arenaLoadMap[sid] = nil
+			delete(sys.arenaLoadMap, sid)
+		}
+	}
+
 	// fmt.Printf("Loaded state for stateID: %d\n", stateID)
 	// fmt.Println(g.saveStates[stateID])
 
 	// checksum := g.saveStates[stateID].Checksum()
 	// fmt.Printf("checksum: %d\n", checksum)
 
-	g.saveStates[stateID].LoadState()
+	g.saveStates[stateID].LoadState(stateID)
 	sys.statePool.gameStatePool.Put(g.saveStates[stateID])
+
 	//sys.gameStatePool <- g.saveStates[stateID]
+	lastLoadedFrame = stateID
 }
 
 func (g *RollbackSession) AdvanceFrame(flags int) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arena"
 	"fmt"
 	"io"
 	"math"
@@ -694,13 +695,13 @@ type GetHitVar struct {
 	fatal          bool
 }
 
-func (ghv *GetHitVar) clone() (result *GetHitVar) {
-	result = &GetHitVar{}
+func (ghv *GetHitVar) clone(a *arena.Arena) (result *GetHitVar) {
+	result = arena.New[GetHitVar](a)
 	*result = *ghv
 
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc
-	result.hitBy = make([][2]int32, len(ghv.hitBy))
+	result.hitBy = arena.MakeSlice[[2]int32](a, len(ghv.hitBy), len(ghv.hitBy))
 	copy(result.hitBy, ghv.hitBy)
 
 	return
@@ -798,11 +799,11 @@ type AfterImage struct {
 	ignorehitpause bool
 }
 
-func (ai AfterImage) clone() (result AfterImage) {
+func (ai AfterImage) clone(a *arena.Arena) (result AfterImage) {
 	result = ai
-	result.palfx = make([]PalFX, len(ai.palfx))
+	result.palfx = arena.MakeSlice[PalFX](a, len(ai.palfx), len(ai.palfx))
 	for i := 0; i < len(ai.palfx); i++ {
-		result.palfx[i] = ai.palfx[i].clone()
+		result.palfx[i] = ai.palfx[i].clone(a)
 	}
 	return
 }
@@ -980,13 +981,13 @@ type Explod struct {
 	localscl       float32
 }
 
-func (e *Explod) clone() (result *Explod) {
+func (e *Explod) clone(a *arena.Arena) (result *Explod) {
 	result = &Explod{}
 	*result = *e
 	if e.anim != nil {
-		result.anim = e.anim.clone()
+		result.anim = e.anim.clone(a)
 	}
-	palfx := e.palfx.clone()
+	palfx := e.palfx.clone(a)
 	result.palfx = &palfx
 	return
 }
@@ -1297,17 +1298,17 @@ type Projectile struct {
 	platformFence   bool
 }
 
-func (p Projectile) clone() (result Projectile) {
+func (p Projectile) clone(a *arena.Arena) (result Projectile) {
 	result = p
 	if p.ani != nil {
-		*result.ani = *p.ani.clone()
+		*result.ani = *p.ani.clone(a)
 	}
-	result.aimg.palfx = make([]PalFX, len(p.aimg.palfx))
+	result.aimg.palfx = arena.MakeSlice[PalFX](a, len(p.aimg.palfx), len(p.aimg.palfx))
 	for i := 0; i < len(p.aimg.palfx); i++ {
-		result.aimg.palfx[i] = p.aimg.palfx[i].clone()
+		result.aimg.palfx[i] = p.aimg.palfx[i].clone(a)
 	}
 
-	palfx := p.palfx.clone()
+	palfx := p.palfx.clone(a)
 	result.palfx = &palfx
 	return
 }
@@ -1602,15 +1603,15 @@ type StateState struct {
 	sb              StateBytecode
 }
 
-func (ss *StateState) clone() (result StateState) {
+func (ss *StateState) clone(a *arena.Arena) (result StateState) {
 	result = *ss
-	result.ps = make([]int32, len(ss.ps))
+	result.ps = arena.MakeSlice[int32](a, len(ss.ps), len(ss.ps))
 	copy(result.ps, ss.ps)
 	for i := 0; i < len(ss.wakegawakaranai); i++ {
-		result.wakegawakaranai[i] = make([]bool, len(ss.wakegawakaranai[i]))
+		result.wakegawakaranai[i] = arena.MakeSlice[bool](a, len(ss.wakegawakaranai[i]), len(ss.wakegawakaranai[i]))
 		copy(result.wakegawakaranai[i], ss.wakegawakaranai[i])
 	}
-	result.sb = ss.sb.clone()
+	result.sb = ss.sb.clone(a)
 	return result
 }
 
@@ -1774,202 +1775,202 @@ type Char struct {
 	pauseBool             bool
 }
 
-func (c *Char) getChildrenState() (childrenState []CharState) {
-	childrenState = make([]CharState, len(c.children))
-	for i, ch := range c.children {
-		if ch != nil {
-			childrenState[i] = ch.getCharState()
-		}
-	}
-	return
-}
+// func (c *Char) getChildrenState() (childrenState []CharState) {
+// 	childrenState = make([]CharState, len(c.children))
+// 	for i, ch := range c.children {
+// 		if ch != nil {
+// 			childrenState[i] = ch.getCharState()
+// 		}
+// 	}
+// 	return
+// }
 
-func (c *Char) getEnemyNearState() (enemynearState [2][]CharState) {
-	for i := 0; i < len(c.enemynear); i++ {
-		enemynearState[i] = make([]CharState, len(c.enemynear[i]))
-		for j := 0; j < len(c.enemynear[i]); j++ {
-			enemynearState[i][j] = c.enemynear[i][j].getCharState()
-		}
-	}
-	return
-}
+// func (c *Char) getEnemyNearState() (enemynearState [2][]CharState) {
+// 	for i := 0; i < len(c.enemynear); i++ {
+// 		enemynearState[i] = make([]CharState, len(c.enemynear[i]))
+// 		for j := 0; j < len(c.enemynear[i]); j++ {
+// 			enemynearState[i][j] = c.enemynear[i][j].getCharState()
+// 		}
+// 	}
+// 	return
+// }
 
-func (c *Char) getCharState() CharState {
-	targets := make([]int32, len(c.targets))
-	copy(targets, c.targets)
+// func (c *Char) getCharState() CharState {
+// 	targets := make([]int32, len(c.targets))
+// 	copy(targets, c.targets)
 
-	targetsOfHitdef := make([]int32, len(c.targetsOfHitdef))
-	copy(targetsOfHitdef, c.targetsOfHitdef)
+// 	targetsOfHitdef := make([]int32, len(c.targetsOfHitdef))
+// 	copy(targetsOfHitdef, c.targetsOfHitdef)
 
-	commandList := make([]CommandList, len(c.cmd))
-	for i, c := range c.cmd {
-		commandList[i] = c.clone()
-	}
-	defaultHitScale := [3]*HitScale{}
-	for i := 0; i < len(defaultHitScale); i++ {
-		if defaultHitScale[i] != nil {
-			*defaultHitScale[i] = *c.defaultHitScale[i]
-		}
-	}
+// 	commandList := make([]CommandList, len(c.cmd))
+// 	for i, c := range c.cmd {
+// 		commandList[i] = c.clone()
+// 	}
+// 	defaultHitScale := [3]*HitScale{}
+// 	for i := 0; i < len(defaultHitScale); i++ {
+// 		if defaultHitScale[i] != nil {
+// 			*defaultHitScale[i] = *c.defaultHitScale[i]
+// 		}
+// 	}
 
-	nextHitScale := make(map[int32][3]*HitScale)
-	for i, v := range c.nextHitScale {
-		hitScale := [3]*HitScale{}
-		for i := 0; i < len(v); i++ {
-			if v[i] != nil {
-				*hitScale[i] = *v[i]
-			}
-		}
-		nextHitScale[i] = hitScale
-	}
-	activeHitScale := make(map[int32][3]*HitScale)
-	for i, v := range c.activeHitScale {
-		hitScale := [3]*HitScale{}
-		for i := 0; i < len(v); i++ {
-			if v[i] != nil {
-				// *hitScale[i] = *v[i] causes bugs
-				hitScale[i] = v[i]
-			}
-		}
-		activeHitScale[i] = hitScale
-	}
-	var animState AnimationState
-	if c.anim != nil {
-		animState = c.anim.getAnimationState()
-	}
-	var curFrame AnimFrame
-	if c.curFrame != nil {
-		curFrame = *c.curFrame
-		curFrame.Ex = make([][]float32, len(c.curFrame.Ex))
-		for i := 0; i < len(c.curFrame.Ex); i++ {
-			curFrame.Ex[i] = make([]float32, len(curFrame.Ex[i]))
-			copy(curFrame.Ex[i], c.curFrame.Ex[i])
-		}
-	}
+// 	nextHitScale := make(map[int32][3]*HitScale)
+// 	for i, v := range c.nextHitScale {
+// 		hitScale := [3]*HitScale{}
+// 		for i := 0; i < len(v); i++ {
+// 			if v[i] != nil {
+// 				*hitScale[i] = *v[i]
+// 			}
+// 		}
+// 		nextHitScale[i] = hitScale
+// 	}
+// 	activeHitScale := make(map[int32][3]*HitScale)
+// 	for i, v := range c.activeHitScale {
+// 		hitScale := [3]*HitScale{}
+// 		for i := 0; i < len(v); i++ {
+// 			if v[i] != nil {
+// 				// *hitScale[i] = *v[i] causes bugs
+// 				hitScale[i] = v[i]
+// 			}
+// 		}
+// 		activeHitScale[i] = hitScale
+// 	}
+// 	var animState AnimationState
+// 	if c.anim != nil {
+// 		animState = c.anim.getAnimationState()
+// 	}
+// 	var curFrame AnimFrame
+// 	if c.curFrame != nil {
+// 		curFrame = *c.curFrame
+// 		curFrame.Ex = make([][]float32, len(c.curFrame.Ex))
+// 		for i := 0; i < len(c.curFrame.Ex); i++ {
+// 			curFrame.Ex[i] = make([]float32, len(curFrame.Ex[i]))
+// 			copy(curFrame.Ex[i], c.curFrame.Ex[i])
+// 		}
+// 	}
 
-	return CharState{
-		ChildrenState:         c.getChildrenState(),
-		EnemynearState:        c.getEnemyNearState(),
-		animState:             animState,
-		curFrame:              curFrame,
-		curFramePtr:           c.curFrame,
-		cmd:                   commandList,
-		ss:                    c.ss.clone(),
-		hitdef:                c.hitdef,
-		RedLife:               c.redLife,
-		Juggle:                c.juggle,
-		Life:                  c.life,
-		Name:                  c.name,
-		Key:                   c.key,
-		Id:                    c.id,
-		HelperId:              c.helperId,
-		HelperIndex:           c.helperIndex,
-		ParentIndex:           c.parentIndex,
-		PlayerNo:              c.playerNo,
-		Teamside:              c.teamside,
-		player:                c.player,
-		AnimPN:                c.animPN,
-		AnimNo:                c.animNo,
-		LifeMax:               c.lifeMax,
-		PowerMax:              c.powerMax,
-		DizzyPoints:           c.dizzyPoints,
-		dizzyPointsMax:        c.dizzyPointsMax,
-		GuardPoints:           c.guardPoints,
-		guardPointsMax:        c.guardPointsMax,
-		FallTime:              c.fallTime,
-		Localcoord:            c.localcoord,
-		Localscl:              c.localscl,
-		ClsnScale:             c.clsnScale,
-		HoIdx:                 c.hoIdx,
-		Mctime:                c.mctime,
-		Targets:               targets,
-		TargetsOfHitdef:       targetsOfHitdef,
-		Pos:                   c.pos,
-		DrawPos:               c.drawPos,
-		OldPos:                c.oldPos,
-		Vel:                   c.vel,
-		Facing:                c.facing,
-		p1facing:              c.p1facing,
-		cpucmd:                c.cpucmd,
-		attackDist:            c.attackDist,
-		stchtmp:               c.stchtmp,
-		inguarddist:           c.inguarddist,
-		pushed:                c.pushed,
-		hitdefContact:         c.hitdefContact,
-		Atktmp:                c.atktmp,
-		Hittmp:                c.hittmp,
-		Acttmp:                c.acttmp,
-		Minus:                 c.minus,
-		platformPosY:          c.platformPosY,
-		GroundAngle:           c.groundAngle,
-		ownpal:                c.ownpal,
-		winquote:              c.winquote,
-		memberNo:              c.memberNo,
-		selectNo:              c.selectNo,
-		ComboExtraFrameWindow: c.comboExtraFrameWindow,
-		InheritJuggle:         c.inheritJuggle,
-		immortal:              c.immortal,
-		kovelocity:            c.kovelocity,
-		Preserve:              c.preserve,
-		inputFlag:             c.inputFlag,
-		pauseBool:             c.pauseBool,
-		keyctrl:               c.keyctrl,
-		power:                 c.power,
-		size:                  c.size,
-		ghv:                   *c.ghv.clone(),
-		hitby:                 c.hitby,
-		ho:                    c.ho,
-		mctype:                c.mctype,
-		Ivar:                  c.ivar,
-		Fvar:                  c.fvar,
-		Offset:                c.offset,
-		mapArray:              c.mapArray,
-		mapDefault:            c.mapDefault,
-		remapSpr:              c.remapSpr,
-		clipboardText:         c.clipboardText,
-		dialogue:              c.dialogue,
-		defaultHitScale:       defaultHitScale,
-		nextHitScale:          nextHitScale,
-		activeHitScale:        activeHitScale,
-		csv: CharSystemVar{
-			airJumpCount:     c.airJumpCount,
-			hitCount:         c.hitCount,
-			uniqHitCount:     c.uniqHitCount,
-			pauseMovetime:    c.pauseMovetime,
-			superMovetime:    c.superMovetime,
-			bindTime:         c.bindTime,
-			bindToId:         c.bindToId,
-			bindPos:          c.bindPos,
-			bindFacing:       c.bindFacing,
-			hitPauseTime:     c.hitPauseTime,
-			angle:            c.angle,
-			angleScale:       c.angleScale,
-			alpha:            c.alpha,
-			recoverTime:      c.recoverTime,
-			systemFlag:       c.systemFlag,
-			specialFlag:      c.specialFlag,
-			sprPriority:      c.sprPriority,
-			receivedHits:     c.receivedHits,
-			fakeReceivedHits: c.fakeReceivedHits,
-			velOff:           c.velOff,
-			width:            c.width,
-			edge:             c.edge,
-			attackMul:        c.attackMul,
-			superDefenseMul:  c.superDefenseMul,
-			fallDefenseMul:   c.fallDefenseMul,
-			customDefense:    c.customDefense,
-			finalDefense:     c.finalDefense,
-			defenseMulDelay:  c.defenseMulDelay,
+// 	return CharState{
+// 		ChildrenState:         c.getChildrenState(),
+// 		EnemynearState:        c.getEnemyNearState(),
+// 		animState:             animState,
+// 		curFrame:              curFrame,
+// 		curFramePtr:           c.curFrame,
+// 		cmd:                   commandList,
+// 		ss:                    c.ss.clone(),
+// 		hitdef:                c.hitdef,
+// 		RedLife:               c.redLife,
+// 		Juggle:                c.juggle,
+// 		Life:                  c.life,
+// 		Name:                  c.name,
+// 		Key:                   c.key,
+// 		Id:                    c.id,
+// 		HelperId:              c.helperId,
+// 		HelperIndex:           c.helperIndex,
+// 		ParentIndex:           c.parentIndex,
+// 		PlayerNo:              c.playerNo,
+// 		Teamside:              c.teamside,
+// 		player:                c.player,
+// 		AnimPN:                c.animPN,
+// 		AnimNo:                c.animNo,
+// 		LifeMax:               c.lifeMax,
+// 		PowerMax:              c.powerMax,
+// 		DizzyPoints:           c.dizzyPoints,
+// 		dizzyPointsMax:        c.dizzyPointsMax,
+// 		GuardPoints:           c.guardPoints,
+// 		guardPointsMax:        c.guardPointsMax,
+// 		FallTime:              c.fallTime,
+// 		Localcoord:            c.localcoord,
+// 		Localscl:              c.localscl,
+// 		ClsnScale:             c.clsnScale,
+// 		HoIdx:                 c.hoIdx,
+// 		Mctime:                c.mctime,
+// 		Targets:               targets,
+// 		TargetsOfHitdef:       targetsOfHitdef,
+// 		Pos:                   c.pos,
+// 		DrawPos:               c.drawPos,
+// 		OldPos:                c.oldPos,
+// 		Vel:                   c.vel,
+// 		Facing:                c.facing,
+// 		p1facing:              c.p1facing,
+// 		cpucmd:                c.cpucmd,
+// 		attackDist:            c.attackDist,
+// 		stchtmp:               c.stchtmp,
+// 		inguarddist:           c.inguarddist,
+// 		pushed:                c.pushed,
+// 		hitdefContact:         c.hitdefContact,
+// 		Atktmp:                c.atktmp,
+// 		Hittmp:                c.hittmp,
+// 		Acttmp:                c.acttmp,
+// 		Minus:                 c.minus,
+// 		platformPosY:          c.platformPosY,
+// 		GroundAngle:           c.groundAngle,
+// 		ownpal:                c.ownpal,
+// 		winquote:              c.winquote,
+// 		memberNo:              c.memberNo,
+// 		selectNo:              c.selectNo,
+// 		ComboExtraFrameWindow: c.comboExtraFrameWindow,
+// 		InheritJuggle:         c.inheritJuggle,
+// 		immortal:              c.immortal,
+// 		kovelocity:            c.kovelocity,
+// 		Preserve:              c.preserve,
+// 		inputFlag:             c.inputFlag,
+// 		pauseBool:             c.pauseBool,
+// 		keyctrl:               c.keyctrl,
+// 		power:                 c.power,
+// 		size:                  c.size,
+// 		ghv:                   *c.ghv.clone(),
+// 		hitby:                 c.hitby,
+// 		ho:                    c.ho,
+// 		mctype:                c.mctype,
+// 		Ivar:                  c.ivar,
+// 		Fvar:                  c.fvar,
+// 		Offset:                c.offset,
+// 		mapArray:              c.mapArray,
+// 		mapDefault:            c.mapDefault,
+// 		remapSpr:              c.remapSpr,
+// 		clipboardText:         c.clipboardText,
+// 		dialogue:              c.dialogue,
+// 		defaultHitScale:       defaultHitScale,
+// 		nextHitScale:          nextHitScale,
+// 		activeHitScale:        activeHitScale,
+// 		csv: CharSystemVar{
+// 			airJumpCount:     c.airJumpCount,
+// 			hitCount:         c.hitCount,
+// 			uniqHitCount:     c.uniqHitCount,
+// 			pauseMovetime:    c.pauseMovetime,
+// 			superMovetime:    c.superMovetime,
+// 			bindTime:         c.bindTime,
+// 			bindToId:         c.bindToId,
+// 			bindPos:          c.bindPos,
+// 			bindFacing:       c.bindFacing,
+// 			hitPauseTime:     c.hitPauseTime,
+// 			angle:            c.angle,
+// 			angleScale:       c.angleScale,
+// 			alpha:            c.alpha,
+// 			recoverTime:      c.recoverTime,
+// 			systemFlag:       c.systemFlag,
+// 			specialFlag:      c.specialFlag,
+// 			sprPriority:      c.sprPriority,
+// 			receivedHits:     c.receivedHits,
+// 			fakeReceivedHits: c.fakeReceivedHits,
+// 			velOff:           c.velOff,
+// 			width:            c.width,
+// 			edge:             c.edge,
+// 			attackMul:        c.attackMul,
+// 			superDefenseMul:  c.superDefenseMul,
+// 			fallDefenseMul:   c.fallDefenseMul,
+// 			customDefense:    c.customDefense,
+// 			finalDefense:     c.finalDefense,
+// 			defenseMulDelay:  c.defenseMulDelay,
 
-			counterHit:   c.counterHit,
-			firstAttack:  c.firstAttack,
-			comboDmg:     c.comboDmg,
-			fakeComboDmg: c.fakeComboDmg,
+// 			counterHit:   c.counterHit,
+// 			firstAttack:  c.firstAttack,
+// 			comboDmg:     c.comboDmg,
+// 			fakeComboDmg: c.fakeComboDmg,
 
-			fakeCombo: c.fakeCombo,
-		},
-	}
-}
+// 			fakeCombo: c.fakeCombo,
+// 		},
+// 	}
+// }
 func (c *Char) enemynearEqual(cs [2][]CharState) bool {
 	if len(cs[0]) != len(c.enemynear[0]) || len(cs[1]) != len(c.enemynear[1]) {
 		return false
@@ -1997,250 +1998,11 @@ func (c *Char) childrenStateEqual(cs []CharState) bool {
 
 }
 
-func (c *Char) loadCharState(cs CharState) {
-	c.children = make([]*Char, len(cs.ChildrenState))
-	for i := range cs.ChildrenState {
-		ch := cs.ChildrenState[i].findChar()
-		if ch != nil {
-			c.children[i] = ch
-			c.children[i].loadCharState(cs.ChildrenState[i])
-		}
-	}
-
-	// Restore Children State
-	if c.childrenStateEqual(cs.ChildrenState) {
-		for i := range cs.ChildrenState {
-			ch := cs.ChildrenState[i].findChar()
-			if ch != nil {
-				c.children[i] = ch
-				c.children[i].loadCharState(cs.ChildrenState[i])
-			}
-		}
-	} else if len(c.children) < len(cs.ChildrenState) {
-		c.children = make([]*Char, len(cs.ChildrenState))
-		for i := range cs.ChildrenState {
-			ch := cs.ChildrenState[i].findChar()
-			if ch != nil {
-				c.children[i] = ch
-				c.children[i].loadCharState(cs.ChildrenState[i])
-			}
-		}
-	} else {
-		more := len(c.children) - len(cs.ChildrenState)
-		c.children = c.children[:len(c.children)-more]
-		for i := range cs.ChildrenState {
-			ch := cs.ChildrenState[i].findChar()
-			if ch != nil {
-				c.children[i] = ch
-				c.children[i].loadCharState(cs.ChildrenState[i])
-			}
-		}
-	}
-
-	// for i := range cs.ChildrenState {
-	// 	c.children = make([]*Char, len(cs.ChildrenState))
-	// 	ch := cs.ChildrenState[i].findChar()
-	// 	if ch != nil {
-	// 		c.children[i] = ch
-	// 		c.children[i].loadCharState(cs.ChildrenState[i])
-	// 	}
-	// }
-
-	if c.enemynearEqual(cs.EnemynearState) {
-		// load enemeynear
-		for i := 0; i < len(c.enemynear); i++ {
-			for j := 0; j < len(c.enemynear[i]); j++ {
-				if c.enemynear[i][j] != nil {
-					c.enemynear[i][j].loadCharState(cs.EnemynearState[i][j])
-				}
-			}
-		}
-	} else {
-		for i := 0; i < len(cs.EnemynearState); i++ {
-			c.enemynear[i] = make([]*Char, len(cs.EnemynearState[i]))
-			for j := 0; j < len(cs.EnemynearState[i]); j++ {
-				ch := cs.EnemynearState[i][j].findChar()
-				if ch == nil {
-					c.enemynear[i][j] = &Char{}
-				} else {
-					c.enemynear[i][j] = ch
-				}
-				c.enemynear[i][j].loadCharState(cs.EnemynearState[i][j])
-			}
-		}
-	}
-
-	// prior state had an animation
-	if c.anim == nil && cs.animState.ptr != nil {
-		c.anim = cs.animState.ptr
-		c.anim.loadAnimationState(cs.animState)
-	}
-
-	// created bug where characters can walk through other characterss?
-
-	if cs.curFramePtr != nil {
-		c.curFrame = cs.curFramePtr
-		// *c.curFrame = cs.curFrame
-		// c.curFrame.Ex = make([][]float32, len(cs.curFrame.Ex))
-		// for i := 0; i < len(cs.curFrame.Ex); i++ {
-		// 	copy(c.curFrame.Ex[i], cs.curFrame.Ex[i])
-		// }
-	}
-
-	c.ss = cs.ss.clone()
-
-	if len(c.cmd) == len(cs.cmd) {
-		for i := 0; i < len(c.cmd); i++ {
-			c.cmd[i].loadCommandList(cs.cmd[i])
-		}
-	} else {
-		c.cmd = cs.cmd
-	}
-
-	c.hitdef = cs.hitdef
-	c.redLife = cs.RedLife
-	c.juggle = cs.Juggle
-	c.life = cs.Life
-	c.name = cs.Name
-	c.key = cs.Key
-	c.id = cs.Id
-	c.helperId = cs.HelperId
-	c.helperIndex = cs.HelperIndex
-	c.parentIndex = cs.ParentIndex
-	c.playerNo = cs.PlayerNo
-	c.teamside = cs.Teamside
-	c.player = cs.player
-	c.animPN = cs.AnimPN
-	c.animNo = cs.AnimNo
-	c.lifeMax = cs.LifeMax
-	c.powerMax = cs.PowerMax
-	c.dizzyPoints = cs.DizzyPoints
-	c.dizzyPointsMax = cs.dizzyPointsMax
-	c.guardPoints = cs.GuardPoints
-	c.guardPointsMax = cs.guardPointsMax
-	c.fallTime = cs.FallTime
-	c.localcoord = cs.Localcoord
-	c.localscl = cs.Localscl
-	c.clsnScale = cs.ClsnScale
-	c.hoIdx = cs.HoIdx
-	c.mctime = cs.Mctime
-	c.targets = cs.Targets
-	c.targetsOfHitdef = cs.TargetsOfHitdef
-	c.pos = cs.Pos
-	c.drawPos = cs.DrawPos
-	c.oldPos = cs.OldPos
-	c.vel = cs.Vel
-	c.facing = cs.Facing
-	c.p1facing = cs.p1facing
-	c.cpucmd = cs.cpucmd
-	c.attackDist = cs.attackDist
-	c.stchtmp = cs.stchtmp
-	c.inguarddist = cs.inguarddist
-	c.pushed = cs.pushed
-	c.hitdefContact = cs.hitdefContact
-	c.atktmp = cs.Atktmp
-	c.hittmp = cs.Hittmp
-	c.acttmp = cs.Acttmp
-	c.minus = cs.Minus
-	c.platformPosY = cs.platformPosY
-	c.groundAngle = cs.GroundAngle
-	c.ownpal = cs.ownpal
-	c.winquote = cs.winquote
-	c.memberNo = cs.memberNo
-	c.selectNo = cs.selectNo
-	c.comboExtraFrameWindow = cs.ComboExtraFrameWindow
-	c.inheritJuggle = cs.InheritJuggle
-	c.immortal = cs.immortal
-	c.kovelocity = cs.kovelocity
-	c.preserve = cs.Preserve
-	c.inputFlag = cs.inputFlag
-	c.pauseBool = cs.pauseBool
-	c.airJumpCount = cs.csv.airJumpCount
-	c.hitCount = cs.csv.hitCount
-	c.uniqHitCount = cs.csv.uniqHitCount
-	c.pauseMovetime = cs.csv.pauseMovetime
-	c.superMovetime = cs.csv.superMovetime
-	c.bindTime = cs.csv.bindTime
-	c.bindToId = cs.csv.bindToId
-	c.bindPos = cs.csv.bindPos
-	c.bindFacing = cs.csv.bindFacing
-	c.hitPauseTime = cs.csv.hitPauseTime
-	c.angle = cs.csv.angle
-	c.angleScale = cs.csv.angleScale
-	c.alpha = cs.csv.alpha
-	c.recoverTime = cs.csv.recoverTime
-	c.systemFlag = cs.csv.systemFlag
-	c.specialFlag = cs.csv.specialFlag
-	c.sprPriority = cs.csv.sprPriority
-	c.receivedHits = cs.csv.receivedHits
-	c.fakeReceivedHits = cs.csv.fakeReceivedHits
-	c.velOff = cs.csv.velOff
-	c.width = cs.csv.width
-	c.edge = cs.csv.edge
-	c.attackMul = cs.csv.attackMul
-	c.superDefenseMul = cs.csv.superDefenseMul
-	c.fallDefenseMul = cs.csv.fallDefenseMul
-	c.customDefense = cs.csv.customDefense
-	c.finalDefense = cs.csv.finalDefense
-	c.defenseMulDelay = cs.csv.defenseMulDelay
-	c.counterHit = cs.csv.counterHit
-	c.firstAttack = cs.csv.firstAttack
-	c.comboDmg = cs.csv.comboDmg
-	c.fakeComboDmg = cs.csv.fakeComboDmg
-	c.fakeCombo = cs.csv.fakeCombo
-
-	c.keyctrl = cs.keyctrl
-	c.power = cs.power
-	c.size = cs.size
-	c.ghv = cs.ghv
-	c.hitby = cs.hitby
-	c.ho = cs.ho
-	c.mctype = cs.mctype
-	c.ivar = cs.Ivar
-	c.fvar = cs.Fvar
-	c.offset = cs.Offset
-	c.mapArray = cs.mapArray
-	c.mapDefault = cs.mapDefault
-	c.remapSpr = cs.remapSpr
-	c.clipboardText = cs.clipboardText
-	c.dialogue = cs.dialogue
-	//c.defaultHitScale = cs.defaultHitScale
-	//c.nextHitScale = cs.nextHitScale
-	//c.activeHitScale = cs.activeHitScale
-
-	for i, v := range c.defaultHitScale {
-		if v != nil && cs.defaultHitScale[i] != nil {
-			*v = *cs.defaultHitScale[i]
-		} else if v == nil && cs.defaultHitScale[i] != nil {
-			c.defaultHitScale[i] = cs.defaultHitScale[i]
-		}
-	}
-	for i, hsa := range c.nextHitScale {
-		for j, h := range hsa {
-			if h != nil && cs.nextHitScale[i][j] != nil {
-				*h = *cs.nextHitScale[i][j]
-			} else if h == nil && cs.nextHitScale[i][j] != nil {
-				hsa[j] = cs.nextHitScale[i][j]
-			}
-		}
-	}
-
-	for i, hsa := range c.activeHitScale {
-		for j, h := range hsa {
-			if h != nil && cs.activeHitScale[i][j] != nil {
-				*h = *cs.activeHitScale[i][j]
-			} else if h == nil && cs.activeHitScale[i][j] != nil {
-				hsa[j] = cs.activeHitScale[i][j]
-			}
-		}
-	}
-}
-
-func (c *Char) clone() (result Char) {
+func (c *Char) clone(a *arena.Arena) (result Char) {
 	result = Char{}
 	result = *c
 
-	result.aimg = c.aimg.clone()
+	result.aimg = c.aimg.clone(a)
 
 	result.nextHitScale = make(map[int32][3]*HitScale)
 	for i, v := range c.nextHitScale {
@@ -2269,48 +2031,44 @@ func (c *Char) clone() (result Char) {
 	// todo, find the curFrame index and set result.curFrame as the pointer at
 	// that index
 	if c.anim != nil {
-		result.anim = c.anim.clone()
+		result.anim = c.anim.clone(a)
 	}
 	if c.curFrame != nil {
-		result.curFrame = c.curFrame.clone()
+		result.curFrame = c.curFrame.clone(a)
 	}
 
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc
-	result.ghv = *c.ghv.clone()
+	result.ghv = *c.ghv.clone(a)
 
-	result.children = make([]*Char, len(c.children))
+	result.children = arena.MakeSlice[*Char](a, len(c.children), len(c.children))
 	copy(result.children, c.children)
-	// for i := 0; i < len(c.children); i++ {
-	// 	//result.children[i] = c.children[i].clone()
-	// }
 
-	result.targets = make([]int32, len(c.targets))
+	result.targets = arena.MakeSlice[int32](a, len(c.targets), len(c.targets))
 	copy(result.targets, c.targets)
 
-	result.targetsOfHitdef = make([]int32, len(c.targetsOfHitdef))
+	result.targetsOfHitdef = arena.MakeSlice[int32](a, len(c.targetsOfHitdef), len(c.targetsOfHitdef))
 	copy(result.targetsOfHitdef, c.targetsOfHitdef)
 
 	for i := range c.enemynear {
-		result.enemynear[i] = make([]*Char, len(c.enemynear[i]))
+		result.enemynear[i] = arena.MakeSlice[*Char](a, len(c.enemynear[i]), len(c.enemynear[i]))
 		copy(result.enemynear[i], c.enemynear[i])
-		//for j := 0; j < len(c.enemynear[i]); j++ {
-		//	result.enemynear[i][j] = c.enemynear[i][j].clone()
-		//}
 	}
 
-	result.clipboardText = make([]string, len(c.clipboardText))
+	result.clipboardText = arena.MakeSlice[string](a, len(c.clipboardText), len(c.clipboardText))
 	copy(result.clipboardText, c.clipboardText)
 
-	result.cmd = make([]CommandList, len(c.cmd))
-	for i, c := range c.cmd {
-		result.cmd[i] = c.clone()
-	}
-	for i := range result.cmd {
-		result.cmd[i].Buffer = result.cmd[0].Buffer
+	if c.keyctrl[0] {
+		result.cmd = arena.MakeSlice[CommandList](a, len(c.cmd), len(c.cmd))
+		for i, c := range c.cmd {
+			result.cmd[i] = c.clone(a)
+		}
+		for i := range result.cmd {
+			result.cmd[i].Buffer = result.cmd[0].Buffer
+		}
 	}
 
-	result.ss = c.ss.clone()
+	result.ss = c.ss.clone(a)
 
 	result.mapArray = make(map[string]float32)
 	for k, v := range c.mapArray {
@@ -6564,23 +6322,16 @@ type CharList struct {
 	idMap               map[int32]*Char
 }
 
-func (cl *CharList) clone() (result *CharList) {
-	result = &CharList{}
-	*result = *cl
+func (cl *CharList) clone(a *arena.Arena) (result CharList) {
+	result = *cl
 
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc
-	result.runOrder = make([]*Char, len(cl.runOrder))
+	result.runOrder = arena.MakeSlice[*Char](a, len(cl.runOrder), len(cl.runOrder))
 	copy(result.runOrder, cl.runOrder)
-	//for i := 0; i < len(cl.runOrder); i++ {
-	//	result.runOrder[i] = cl.runOrder[i].clone()
-	//}
 
-	result.drawOrder = make([]*Char, len(cl.drawOrder))
+	result.drawOrder = arena.MakeSlice[*Char](a, len(cl.drawOrder), len(cl.drawOrder))
 	copy(result.drawOrder, cl.drawOrder)
-	// for i := 0; i < len(cl.drawOrder); i++ {
-	// 	result.drawOrder[i] = cl.drawOrder[i].clone()
-	// }
 
 	result.idMap = make(map[int32]*Char)
 	for k, v := range cl.idMap {
@@ -6674,6 +6425,9 @@ func (cl *CharList) action(ib []InputBits, x float32, cvmin, cvmax,
 				if c.helperIndex == 0 ||
 					c.helperIndex > 0 && &c.cmd[0] != &r.cmd[0] {
 					if i < len(ib) {
+						if sys.gameMode == "watch" && (c.key < 0 && ^c.key < len(sys.aiInput)) {
+							sys.aiInput[^c.key].Update(sys.com[i])
+						}
 						// if we have an input from the players
 						// update the command buffer based on that.
 						c.cmd[0].Buffer.InputBits(ib[i], int32(c.facing))

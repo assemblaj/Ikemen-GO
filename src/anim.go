@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arena"
 	"strings"
 )
 
@@ -15,12 +16,12 @@ type AnimFrame struct {
 	Ex            [][]float32
 }
 
-func (af *AnimFrame) clone() (result *AnimFrame) {
-	result = &AnimFrame{}
+func (af *AnimFrame) clone(a *arena.Arena) (result *AnimFrame) {
+	result = arena.New[AnimFrame](a)
 	*result = *af
-	result.Ex = make([][]float32, len(af.Ex))
+	result.Ex = arena.MakeSlice[[]float32](a, len(af.Ex), len(af.Ex))
 	for i := 0; i < len(af.Ex); i++ {
-		result.Ex[i] = make([]float32, len(af.Ex[i]))
+		result.Ex[i] = arena.MakeSlice[float32](a, len(af.Ex[i]), len(af.Ex[i]))
 		copy(result.Ex[i], af.Ex[i])
 	}
 	return
@@ -178,25 +179,25 @@ type Animation struct {
 	start_scale                [2]float32
 }
 
-func (a *Animation) clone() (result *Animation) {
-	result = &Animation{}
+func (a *Animation) clone(ar *arena.Arena) (result *Animation) {
+	result = arena.New[Animation](ar)
 	*result = *a
 
-	result.frames = make([]AnimFrame, len(a.frames))
+	result.frames = arena.MakeSlice[AnimFrame](ar, len(a.frames), len(a.frames))
 	for i := 0; i < len(a.frames); i++ {
-		result.frames[i] = *a.frames[i].clone()
+		result.frames[i] = *a.frames[i].clone(ar)
 	}
 
-	result.interpolate_offset = make([]int32, len(a.interpolate_offset))
+	result.interpolate_offset = arena.MakeSlice[int32](ar, len(a.interpolate_offset), len(a.interpolate_offset))
 	copy(result.interpolate_offset, a.interpolate_offset)
 
-	result.interpolate_scale = make([]int32, len(a.interpolate_scale))
+	result.interpolate_scale = arena.MakeSlice[int32](ar, len(a.interpolate_scale), len(a.interpolate_scale))
 	copy(result.interpolate_scale, a.interpolate_scale)
 
-	result.interpolate_angle = make([]int32, len(a.interpolate_angle))
+	result.interpolate_angle = arena.MakeSlice[int32](ar, len(a.interpolate_angle), len(a.interpolate_angle))
 	copy(result.interpolate_angle, a.interpolate_angle)
 
-	result.interpolate_blend = make([]int32, len(a.interpolate_blend))
+	result.interpolate_blend = arena.MakeSlice[int32](ar, len(a.interpolate_blend), len(a.interpolate_blend))
 	copy(result.interpolate_blend, a.interpolate_blend)
 
 	return

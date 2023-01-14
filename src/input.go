@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arena"
 	"encoding/binary"
 	"net"
 	"os"
@@ -1466,9 +1467,9 @@ type cmdElem struct {
 	slash, greater, direction bool
 }
 
-func (ce *cmdElem) clone() (result cmdElem) {
+func (ce *cmdElem) clone(a *arena.Arena) (result cmdElem) {
 	result = *ce
-	result.key = make([]CommandKey, len(ce.key))
+	result.key = arena.MakeSlice[CommandKey](a, len(ce.key), len(ce.key))
 	copy(result.key, ce.key)
 	return
 }
@@ -1515,27 +1516,49 @@ type Command struct {
 	buftime, curbuftime int32
 }
 
-func (c *Command) clone() (result Command) {
+func (c *Command) clone(a *arena.Arena) (result Command) {
 	result = *c
 
-	result.cmd = make([]cmdElem, len(c.cmd))
+	result.cmd = arena.MakeSlice[cmdElem](a, len(c.cmd), len(c.cmd))
 	for i := 0; i < len(c.cmd); i++ {
-		result.cmd[i] = c.cmd[i].clone()
+		result.cmd[i] = c.cmd[i].clone(a)
 	}
 
-	result.held = make([]bool, len(c.held))
+	result.held = arena.MakeSlice[bool](a, len(c.held), len(c.held))
 	copy(result.held, c.held)
 
-	result.hold = make([][]CommandKey, len(c.hold))
+	result.hold = arena.MakeSlice[[]CommandKey](a, len(c.hold), len(c.hold))
 	for i := 0; i < len(c.hold); i++ {
-		result.hold[i] = make([]CommandKey, len(c.hold[i]))
+		result.hold[i] = arena.MakeSlice[CommandKey](a, len(c.hold[i]), len(c.hold[i]))
 		for j := 0; j < len(c.hold[i]); j++ {
 			result.hold[i][j] = c.hold[i][j]
 		}
 	}
+
 	return
 }
 
+// func (c *Command) clone() (result Command) {
+// 	result = *c
+
+// 	result.cmd = make([]cmdElem, len(c.cmd))
+// 	for i := 0; i < len(c.cmd); i++ {
+// 		result.cmd[i] = c.cmd[i].clone()
+// 	}
+
+// 	result.held = make([]bool, len(c.held))
+// 	copy(result.held, c.held)
+
+// 	result.hold = make([][]CommandKey, len(c.hold))
+// 	for i := 0; i < len(c.hold); i++ {
+// 		result.hold[i] = make([]CommandKey, len(c.hold[i]))
+// 		for j := 0; j < len(c.hold[i]); j++ {
+// 			result.hold[i][j] = c.hold[i][j]
+// 		}
+// 	}
+
+// 	return
+// }
 func newCommand() *Command { return &Command{tamei: -1, time: 1, buftime: 1} }
 func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 	c := newCommand()
@@ -1985,24 +2008,41 @@ type CommandList struct {
 	DefaultBufferTime int32
 }
 
-func (cl *CommandList) clone() (result CommandList) {
+func (cl *CommandList) clone(a *arena.Arena) (result CommandList) {
 	result = *cl
-	result.Buffer = &CommandBuffer{}
+
+	result.Buffer = arena.New[CommandBuffer](a)
 	*result.Buffer = *cl.Buffer
-	result.Commands = make([][]Command, len(cl.Commands))
+
+	result.Commands = arena.MakeSlice[[]Command](a, len(cl.Commands), len(cl.Commands))
 	for i := 0; i < len(cl.Commands); i++ {
-		result.Commands[i] = make([]Command, len(cl.Commands[i]))
+		result.Commands[i] = arena.MakeSlice[Command](a, len(cl.Commands[i]), len(cl.Commands[i]))
 		for j := 0; j < len(cl.Commands[i]); j++ {
-			result.Commands[i][j] = cl.Commands[i][j].clone()
+			result.Commands[i][j] = cl.Commands[i][j].clone(a)
 		}
 	}
-	result.Names = make(map[string]int)
-	for k, v := range cl.Names {
-		result.Names[k] = v
-	}
+
 	return
 }
 
+// func (cl *CommandList) clone() (result CommandList) {
+// 	result = *cl
+
+// 	result.Buffer = &CommandBuffer{}
+// 	*result.Buffer = *cl.Buffer
+// 	result.Commands = make([][]Command, len(cl.Commands))
+// 	for i := 0; i < len(cl.Commands); i++ {
+// 		result.Commands[i] = make([]Command, len(cl.Commands[i]))
+// 		for j := 0; j < len(cl.Commands[i]); j++ {
+// 			result.Commands[i][j] = cl.Commands[i][j].clone()
+// 		}
+// 	}
+// 	// result.Names = make(map[string]int)
+// 	// for k, v := range cl.Names {
+// 	// 	result.Names[k] = v
+// 	// }
+// 	return
+// }
 func (cl *CommandList) loadCommandList(c CommandList) {
 	*cl.Buffer = *c.Buffer
 	cl.Commands = c.Commands

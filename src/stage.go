@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arena"
 	"fmt"
 	"math"
 	"regexp"
@@ -132,10 +133,10 @@ type backGround struct {
 	roundpos           bool
 }
 
-func (bg *backGround) clone() (result *backGround) {
+func (bg *backGround) clone(a *arena.Arena) (result *backGround) {
 	result = &backGround{}
 	*result = *bg
-	result.anim = *bg.anim.clone()
+	result.anim = *bg.anim.clone(a)
 	return
 }
 
@@ -444,12 +445,12 @@ type bgCtrl struct {
 	sctrlid      int32
 }
 
-func (bgc *bgCtrl) clone() (result bgCtrl) {
+func (bgc *bgCtrl) clone(a *arena.Arena) (result bgCtrl) {
 	result = bgCtrl{}
 	result = *bgc
-	result.bg = make([]*backGround, len(bgc.bg))
+	result.bg = arena.MakeSlice[*backGround](a, len(bgc.bg), len(bgc.bg))
 	for i := 0; i < len(bgc.bg); i++ {
-		result.bg[i] = bgc.bg[i].clone()
+		result.bg[i] = bgc.bg[i].clone(a)
 	}
 	return
 }
@@ -510,12 +511,12 @@ type bgctNode struct {
 	waitTime int32
 }
 
-func (bgctn bgctNode) clone() (result bgctNode) {
+func (bgctn bgctNode) clone(a *arena.Arena) (result bgctNode) {
 	result = bgctNode{}
 	result = bgctn
-	result.bgc = make([]*bgCtrl, len(bgctn.bgc))
+	result.bgc = arena.MakeSlice[*bgCtrl](a, len(bgctn.bgc), len(bgctn.bgc))
 	for i := 0; i < len(bgctn.bgc); i++ {
-		bgc := bgctn.bgc[i].clone()
+		bgc := bgctn.bgc[i].clone(a)
 		result.bgc[i] = &bgc
 	}
 	return
@@ -526,16 +527,16 @@ type bgcTimeLine struct {
 	al   []*bgCtrl
 }
 
-func (bgct *bgcTimeLine) clone() (result bgcTimeLine) {
+func (bgct *bgcTimeLine) clone(a *arena.Arena) (result bgcTimeLine) {
 	result = bgcTimeLine{}
 	result = *bgct
-	result.line = make([]bgctNode, len(bgct.line))
+	result.line = arena.MakeSlice[bgctNode](a, len(bgct.line), len(bgct.line))
 	for i := 0; i < len(bgct.line); i++ {
-		result.line[i] = bgct.line[i].clone()
+		result.line[i] = bgct.line[i].clone(a)
 	}
-	result.al = make([]*bgCtrl, len(bgct.al))
+	result.al = arena.MakeSlice[*bgCtrl](a, len(bgct.al), len(bgct.al))
 	for i := 0; i < len(bgct.al); i++ {
-		bgCtrl := bgct.al[i].clone()
+		bgCtrl := bgct.al[i].clone(a)
 		result.al[i] = &bgCtrl
 	}
 	return
@@ -676,11 +677,11 @@ type Stage struct {
 	stageprops      StageProps
 }
 
-func (s *Stage) clone() (result *Stage) {
+func (s *Stage) clone(a *arena.Arena) (result *Stage) {
 	result = &Stage{}
 	*result = *s
 
-	result.attachedchardef = make([]string, len(s.attachedchardef))
+	result.attachedchardef = arena.MakeSlice[string](a, len(s.attachedchardef), len(s.attachedchardef))
 	copy(result.attachedchardef, s.attachedchardef)
 
 	result.constants = make(map[string]float32)
@@ -690,20 +691,20 @@ func (s *Stage) clone() (result *Stage) {
 
 	result.at = make(AnimationTable)
 	for k, v := range s.at {
-		result.at[k] = v.clone()
+		result.at[k] = v.clone(a)
 	}
 
-	result.bg = make([]*backGround, len(s.bg))
+	result.bg = arena.MakeSlice[*backGround](a, len(s.bg), len(s.bg))
 	for i := 0; i < len(s.bg); i++ {
-		result.bg[i] = s.bg[i].clone()
+		result.bg[i] = s.bg[i].clone(a)
 	}
 
-	result.bgc = make([]bgCtrl, len(s.bgc))
+	result.bgc = arena.MakeSlice[bgCtrl](a, len(s.bgc), len(s.bgc))
 	for i := 0; i < len(s.bgc); i++ {
-		result.bgc[i] = s.bgc[i].clone()
+		result.bgc[i] = s.bgc[i].clone(a)
 	}
 
-	result.bgct = s.bgct.clone()
+	result.bgct = s.bgct.clone(a)
 	return
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arena"
 	"fmt"
 	"math"
 	"regexp"
@@ -2904,105 +2905,105 @@ type Lifebar struct {
 	textsprite []*TextSprite
 }
 
-func (l *Lifebar) clone() (result Lifebar) {
+func (l *Lifebar) clone(a *arena.Arena) (result Lifebar) {
 	result = *l
 
 	if l.ro != nil {
-		round := *l.ro
-		result.ro = &round
+		result.ro = arena.New[LifeBarRound](a)
+		*result.ro = *l.ro
 	}
 
 	//UIT
 	for i := 0; i < len(l.sc); i++ {
 		if l.sc[i] != nil {
-			score := *l.sc[i]
-			result.sc[i] = &score
+			result.sc[i] = arena.New[LifeBarScore](a)
+			*result.sc[i] = *l.sc[i]
 		}
 	}
 	if l.ti != nil {
-		time := *l.ti
-		result.ti = &time
+		result.ti = arena.New[LifeBarTime](a)
+		*result.ti = *l.ti
 	}
 	for i := 0; i < len(l.co); i++ {
 		if l.co[i] != nil {
-			combo := *l.co[i]
-			result.co[i] = &combo
+			result.co[i] = arena.New[LifeBarCombo](a)
+			*result.co[i] = *l.co[i]
 		}
 	}
 	//
 
 	// Not UIT adding amyway
 	for i := 0; i < len(l.wc); i++ {
-		wins := *l.wc[i]
-		result.wc[i] = &wins
+		result.wc[i] = arena.New[LifeBarWinCount](a)
+		*result.wc[i] = *l.wc[i]
 	}
 
 	if l.ma != nil {
-		match := *l.ma
-		result.ma = &match
+		result.ma = arena.New[LifeBarMatch](a)
+		*result.ma = *l.ma
 	}
 
 	for i := 0; i < len(l.ai); i++ {
-		ai := *l.ai[i]
-		result.ai[i] = &ai
+		result.ai[i] = arena.New[LifeBarAiLevel](a)
+		*result.ai[i] = *l.ai[i]
 	}
 
 	if l.tr != nil {
-		timer := *l.tr
-		result.tr = &timer
+		result.tr = arena.New[LifeBarTimer](a)
+		*result.tr = *l.tr
 	}
 	//
 
 	for i := range result.order {
-		result.order[i] = make([]int, len(l.order[i]))
+		result.order[i] = arena.MakeSlice[int](a, len(l.order[i]), len(l.order[i]))
 		copy(result.order[i], l.order[i])
 	}
 
 	for i := range result.hb {
-		result.hb[i] = make([]*HealthBar, len(l.hb[i]))
+		result.hb[i] = arena.MakeSlice[*HealthBar](a, len(l.hb[i]), len(l.hb[i]))
 		for j := 0; j < len(l.hb[i]); j++ {
-			health := *l.hb[i][j]
-			result.hb[i][j] = &health
+			result.hb[i][j] = arena.New[HealthBar](a)
+			*result.hb[i][j] = *l.hb[i][j]
 		}
 	}
 
 	for i := range result.pb {
-		result.pb[i] = make([]*PowerBar, len(l.pb[i]))
+		result.pb[i] = arena.MakeSlice[*PowerBar](a, len(l.pb[i]), len(l.pb[i]))
 		for j := 0; j < len(l.pb[i]); j++ {
-			power := *l.pb[i][j]
-			result.pb[i][j] = &power
+			result.pb[i][j] = arena.New[PowerBar](a)
+			*result.pb[i][j] = *l.pb[i][j]
 		}
 	}
 
 	for i := range result.gb {
-		result.gb[i] = make([]*GuardBar, len(l.gb[i]))
+		result.gb[i] = arena.MakeSlice[*GuardBar](a, len(l.gb[i]), len(l.gb[i]))
 		for j := 0; j < len(l.gb[i]); j++ {
-			gaurd := *l.gb[i][j]
-			result.gb[i][j] = &gaurd
+			result.gb[i][j] = arena.New[GuardBar](a)
+			*result.gb[i][j] = *l.gb[i][j]
 		}
 	}
 
 	for i := range result.sb {
-		result.sb[i] = make([]*StunBar, len(l.sb[i]))
+		result.sb[i] = arena.MakeSlice[*StunBar](a, len(l.sb[i]), len(l.sb[i]))
 		for j := 0; j < len(l.sb[i]); j++ {
-			stun := *l.sb[i][j]
-			result.sb[i][j] = &stun
+			result.sb[i][j] = arena.New[StunBar](a)
+			*result.sb[i][j] = *l.sb[i][j]
 		}
 	}
 
 	for i := range result.fa {
-		result.fa[i] = make([]*LifeBarFace, len(l.fa[i]))
+		result.fa[i] = arena.MakeSlice[*LifeBarFace](a, len(l.fa[i]), len(l.fa[i]))
 		for j := 0; j < len(l.fa[i]); j++ {
-			face := *l.fa[i][j]
-			result.fa[i][j] = &face
+			result.fa[i][j] = arena.New[LifeBarFace](a)
+			*result.fa[i][j] = *l.fa[i][j]
 		}
 	}
 
 	for i := range result.nm {
-		result.nm[i] = make([]*LifeBarName, len(l.nm[i]))
+		result.nm[i] = arena.MakeSlice[*LifeBarName](a, len(l.nm[i]), len(l.nm[i]))
 		for j := 0; j < len(l.nm[i]); j++ {
-			name := *l.nm[i][j]
-			result.nm[i][j] = &name
+			result.nm[i][j] = arena.New[LifeBarName](a)
+			*result.nm[i][j] = *l.nm[i][j]
 		}
 	}
 

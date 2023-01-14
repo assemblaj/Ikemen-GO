@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arena"
 	"encoding/binary"
 	"encoding/gob"
 	"math"
@@ -543,9 +544,9 @@ type StringPool struct {
 	Map  map[string]int
 }
 
-func (sp StringPool) clone() (result StringPool) {
+func (sp StringPool) clone(a *arena.Arena) (result StringPool) {
 	result = sp
-	result.List = make([]string, len(sp.List))
+	result.List = arena.MakeSlice[string](a, len(sp.List), len(sp.List))
 	copy(result.List, sp.List)
 	result.Map = make(map[string]int)
 	for k, v := range sp.Map {
@@ -2104,15 +2105,15 @@ type StateBlock struct {
 	ctrls               []StateController
 }
 
-func (b *StateBlock) clone() (result StateBlock) {
+func (b *StateBlock) clone(a *arena.Arena) (result StateBlock) {
 	result = *b
-	result.trigger = make(BytecodeExp, len(b.trigger))
+	result.trigger = arena.MakeSlice[OpCode](a, len(b.trigger), len(b.trigger))
 	copy(result.trigger, b.trigger)
 	if b.elseBlock != nil {
-		eb := b.elseBlock.clone()
+		eb := b.elseBlock.clone(a)
 		result.elseBlock = &eb
 	}
-	result.ctrls = make([]StateController, len(b.ctrls))
+	result.ctrls = arena.MakeSlice[StateController](a, len(b.ctrls), len(b.ctrls))
 	copy(result.ctrls, b.ctrls)
 	return result
 }
@@ -8150,14 +8151,14 @@ type StateBytecode struct {
 	numVars   int32
 }
 
-func (sb *StateBytecode) clone() (result StateBytecode) {
+func (sb *StateBytecode) clone(a *arena.Arena) (result StateBytecode) {
 	result = *sb
-	result.stateDef = make(stateDef, len(sb.stateDef))
+	result.stateDef = arena.MakeSlice[byte](a, len(sb.stateDef), len(sb.stateDef))
 	copy(result.stateDef, sb.stateDef)
 
-	result.ctrlsps = make([]int32, len(sb.ctrlsps))
+	result.ctrlsps = arena.MakeSlice[int32](a, len(sb.ctrlsps), len(sb.ctrlsps))
 	copy(result.ctrlsps, sb.ctrlsps)
-	result.block = sb.block.clone()
+	result.block = sb.block.clone(a)
 	return result
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arena"
 	"encoding/binary"
 	"fmt"
 	"image"
@@ -47,9 +48,9 @@ type PalFX struct {
 	eColor     float32
 }
 
-func (pf PalFX) clone() (result PalFX) {
+func (pf PalFX) clone(a *arena.Arena) (result PalFX) {
 	result = pf
-	result.remap = make([]int, len(pf.remap))
+	result.remap = arena.MakeSlice[int](a, len(pf.remap), len(pf.remap))
 	copy(result.remap, pf.remap)
 	return
 }

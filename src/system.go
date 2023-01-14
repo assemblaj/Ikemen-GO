@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arena"
 	"bufio"
 	"fmt"
 	"image"
@@ -104,6 +105,8 @@ var sys = System{
 	statePool:    NewGameStatePool(),
 	luaTables:    make([]*lua.LTable, 0),
 	commandLists: make([]*CommandList, 0),
+	arenaSaveMap: make(map[int]*arena.Arena),
+	arenaLoadMap: make(map[int]*arena.Arena),
 }
 
 type TeamMode int32
@@ -392,6 +395,9 @@ type System struct {
 	luaNumVars         map[string]float32
 	luaTables          []*lua.LTable
 	commandLists       []*CommandList
+	arenaSaveMap       map[int]*arena.Arena
+	arenaLoadMap       map[int]*arena.Arena
+	rollbackStateID    int
 }
 
 type Fight struct {
@@ -410,42 +416,42 @@ type Fight struct {
 	remapSpr                     []RemapPreset
 }
 
-func (f Fight) clone() (result Fight) {
+func (f Fight) clone(a *arena.Arena) (result Fight) {
 	result = f
-	result.oldStageVars = *f.oldStageVars.clone()
-	result.level = make([]int32, len(f.level))
+	result.oldStageVars = *f.oldStageVars.clone(a)
+	result.level = arena.MakeSlice[int32](a, len(f.level), len(f.level))
 	copy(result.level, f.level)
 
-	result.life = make([]int32, len(f.life))
+	result.life = arena.MakeSlice[int32](a, len(f.life), len(f.life))
 	copy(result.life, f.life)
-	result.pow = make([]int32, len(f.pow))
+	result.pow = arena.MakeSlice[int32](a, len(f.pow), len(f.pow))
 	copy(result.pow, f.pow)
-	result.gpow = make([]int32, len(f.gpow))
+	result.gpow = arena.MakeSlice[int32](a, len(f.gpow), len(f.gpow))
 	copy(result.gpow, f.gpow)
-	result.spow = make([]int32, len(f.spow))
+	result.spow = arena.MakeSlice[int32](a, len(f.spow), len(f.spow))
 	copy(result.spow, f.spow)
-	result.rlife = make([]int32, len(f.rlife))
+	result.rlife = arena.MakeSlice[int32](a, len(f.rlife), len(f.rlife))
 	copy(result.rlife, f.rlife)
 
-	result.ivar = make([][]int32, len(f.ivar))
+	result.ivar = arena.MakeSlice[[]int32](a, len(f.ivar), len(f.ivar))
 	for i := 0; i < len(f.ivar); i++ {
-		result.ivar[i] = make([]int32, len(f.ivar[i]))
+		result.ivar[i] = arena.MakeSlice[int32](a, len(f.ivar[i]), len(f.ivar[i]))
 		copy(result.ivar[i], f.ivar[i])
 	}
 
-	result.fvar = make([][]float32, len(f.fvar))
+	result.fvar = arena.MakeSlice[[]float32](a, len(f.fvar), len(f.fvar))
 	for i := 0; i < len(f.ivar); i++ {
-		result.fvar[i] = make([]float32, len(f.fvar[i]))
+		result.fvar[i] = arena.MakeSlice[float32](a, len(f.fvar[i]), len(f.fvar[i]))
 		copy(result.fvar[i], f.fvar[i])
 	}
 
-	result.dialogue = make([][]string, len(f.dialogue))
+	result.dialogue = arena.MakeSlice[[]string](a, len(f.dialogue), len(f.dialogue))
 	for i := 0; i < len(result.dialogue); i++ {
-		result.dialogue[i] = make([]string, len(f.dialogue[i]))
+		result.dialogue[i] = arena.MakeSlice[string](a, len(f.dialogue[i]), len(f.dialogue[i]))
 		copy(result.dialogue[i], f.dialogue[i])
 	}
 
-	result.mapArray = make([]map[string]float32, len(f.mapArray))
+	result.mapArray = arena.MakeSlice[map[string]float32](a, len(f.mapArray), len(f.mapArray))
 	for i := 0; i < len(f.mapArray); i++ {
 		result.mapArray[i] = make(map[string]float32)
 		for k, v := range f.mapArray[i] {
@@ -2387,9 +2393,9 @@ func (s *System) runFrame() bool {
 	var buffer []byte
 	var result error
 	if s.rollbackNetwork.syncTest {
-		buffer = getInputs(0)
+		buffer = getAIInputs(0)
 		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
-		buffer = getInputs(1)
+		buffer = getAIInputs(1)
 		result = s.rollbackNetwork.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
 	} else {
 		buffer = getInputs(0)
@@ -2580,6 +2586,29 @@ func (s *System) resetFight() {
 	s.roundResetFlg, s.introSkipped = false, false
 	s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
 	s.cam.Update(s.cam.startzoom, 0, 0)
+}
+
+func getAIInputs(player int) []byte {
+	var ib InputBits
+	ib.SetInputAI(player)
+	return writeI32(int32(ib))
+}
+
+func (ib *InputBits) SetInputAI(in int) {
+	*ib = InputBits(Btoi(sys.aiInput[in].U()) |
+		Btoi(sys.aiInput[in].D())<<1 |
+		Btoi(sys.aiInput[in].L())<<2 |
+		Btoi(sys.aiInput[in].R())<<3 |
+		Btoi(sys.aiInput[in].a())<<4 |
+		Btoi(sys.aiInput[in].b())<<5 |
+		Btoi(sys.aiInput[in].c())<<6 |
+		Btoi(sys.aiInput[in].x())<<7 |
+		Btoi(sys.aiInput[in].y())<<8 |
+		Btoi(sys.aiInput[in].z())<<9 |
+		Btoi(sys.aiInput[in].s())<<10 |
+		Btoi(sys.aiInput[in].d())<<11 |
+		Btoi(sys.aiInput[in].w())<<12 |
+		Btoi(sys.aiInput[in].m())<<13)
 }
 
 // Starts and runs gameplay
@@ -2899,14 +2928,14 @@ type Select struct {
 }
 
 // other things can be copied, only focusing on OCD right now
-func (s Select) clone() (result Select) {
+func (s Select) clone(a *arena.Arena) (result Select) {
 	result = s
 	for i := 0; i < len(s.ocd); i++ {
-		result.ocd[i] = make([]OverrideCharData, len(s.ocd[i]))
+		result.ocd[i] = arena.MakeSlice[OverrideCharData](a, len(s.ocd[i]), len(s.ocd[i]))
 		copy(result.ocd[i], s.ocd[i])
 	}
 
-	result.stageAnimPreload = make([]int32, len(s.stageAnimPreload))
+	result.stageAnimPreload = arena.MakeSlice[int32](a, len(s.stageAnimPreload), len(s.stageAnimPreload))
 	copy(result.stageAnimPreload, s.stageAnimPreload)
 
 	return
