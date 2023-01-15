@@ -23,6 +23,7 @@ import (
 	gl "github.com/fyne-io/gl-js"
 	glfw "github.com/fyne-io/glfw-js"
 	lua "github.com/yuin/gopher-lua"
+	"golang.org/x/exp/maps"
 )
 
 const (
@@ -107,6 +108,8 @@ var sys = System{
 	commandLists: make([]*CommandList, 0),
 	arenaSaveMap: make(map[int]*arena.Arena),
 	arenaLoadMap: make(map[int]*arena.Arena),
+	savePool:     NewGameStatePool(),
+	loadPool:     NewGameStatePool(),
 }
 
 type TeamMode int32
@@ -398,6 +401,8 @@ type System struct {
 	arenaSaveMap       map[int]*arena.Arena
 	arenaLoadMap       map[int]*arena.Arena
 	rollbackStateID    int
+	savePool           GameStatePool
+	loadPool           GameStatePool
 }
 
 type Fight struct {
@@ -416,9 +421,9 @@ type Fight struct {
 	remapSpr                     []RemapPreset
 }
 
-func (f Fight) clone(a *arena.Arena) (result Fight) {
+func (f Fight) clone(a *arena.Arena, gsp *GameStatePool) (result Fight) {
 	result = f
-	result.oldStageVars = *f.oldStageVars.clone(a)
+	result.oldStageVars = *f.oldStageVars.clone(a, gsp)
 	result.level = arena.MakeSlice[int32](a, len(f.level), len(f.level))
 	copy(result.level, f.level)
 
@@ -453,7 +458,8 @@ func (f Fight) clone(a *arena.Arena) (result Fight) {
 
 	result.mapArray = arena.MakeSlice[map[string]float32](a, len(f.mapArray), len(f.mapArray))
 	for i := 0; i < len(f.mapArray); i++ {
-		result.mapArray[i] = make(map[string]float32)
+		result.mapArray[i] = *gsp.Get(f.mapArray[i]).(*map[string]float32)
+		maps.Clear(result.mapArray[i])
 		for k, v := range f.mapArray[i] {
 			result.mapArray[i][k] = v
 		}
@@ -2420,6 +2426,12 @@ func (s *System) runFrame() bool {
 
 			// If frame is ready to tick and not paused
 			s.updateStage()
+
+			// update lua
+			for i := 0; i < len(inputs); i++ {
+				sys.commandLists[i].Buffer.InputBits(inputs[i], 1)
+				sys.commandLists[i].Step(1, false, false, 0)
+			}
 
 			// Update game state
 			s.action(inputs)

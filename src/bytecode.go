@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 	"unsafe"
+
+	"golang.org/x/exp/maps"
 )
 
 func GetFunctionName(i interface{}) string {
@@ -544,11 +546,13 @@ type StringPool struct {
 	Map  map[string]int
 }
 
-func (sp StringPool) clone(a *arena.Arena) (result StringPool) {
+func (sp StringPool) clone(a *arena.Arena, gsp *GameStatePool) (result StringPool) {
 	result = sp
 	result.List = arena.MakeSlice[string](a, len(sp.List), len(sp.List))
 	copy(result.List, sp.List)
-	result.Map = make(map[string]int)
+	result.Map = *gsp.Get(sp.Map).(*map[string]int)
+	maps.Clear(result.Map)
+
 	for k, v := range sp.Map {
 		result.Map[k] = v
 	}
@@ -8316,7 +8320,7 @@ const (
 
 func (sc saveState) Run(c *Char, _ []int32) bool {
 	PrintSCBInfo(c)
-	//crun := c
+	//crun :=
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case saveState_:

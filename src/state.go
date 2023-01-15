@@ -852,11 +852,12 @@ func (gs *GameState) Equal(other GameState) (equality bool) {
 func (gs *GameState) LoadState(stateID int) {
 	sys.arenaLoadMap[stateID] = arena.NewArena()
 	a := sys.arenaLoadMap[stateID]
+	gsp := &sys.loadPool
 
 	sys.randseed = gs.randseed
 	sys.time = gs.Time // UIT
 	sys.gameTime = gs.GameTime
-	gs.loadCharData(a)
+	gs.loadCharData(a, gsp)
 	gs.loadExplodData(a)
 	sys.cam = gs.cam
 	gs.loadPauseData()
@@ -876,7 +877,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.bcVar = arena.MakeSlice[BytecodeValue](a, len(gs.bcVar), len(gs.bcVar))
 	copy(sys.bcVar, gs.bcVar)
 
-	sys.stage = gs.stage.clone(a)
+	sys.stage = gs.stage.clone(a, gsp)
 
 	sys.aiInput = gs.aiInput
 	sys.inputRemap = gs.inputRemap
@@ -1027,7 +1028,7 @@ func (gs *GameState) LoadState(stateID int) {
 
 	sys.sel = gs.sel.clone(a)
 	for i := 0; i < len(sys.stringPool); i++ {
-		sys.stringPool[i] = gs.stringPool[i].clone(a)
+		sys.stringPool[i] = gs.stringPool[i].clone(a, gsp)
 	}
 
 	sys.dialogueFlg = gs.dialogueFlg
@@ -1068,18 +1069,28 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.stageLoopNo = gs.stageLoopNo
 
 	// 11/5/22
-	sys.currentFight = gs.fight.clone(sys.arenaLoadMap[stateID])
+	sys.currentFight = gs.fight.clone(a, gsp)
 
-	wc := gs.debugWC.clone(sys.arenaLoadMap[stateID])
+	wc := gs.debugWC.clone(a, gsp)
 	sys.debugWC = &wc
 
-	// sys.commandLists = gs.commandLists
+	// gotta keep these pointers around because they are userdata
+	for i := 0; i < len(sys.commandLists); i++ {
+		gs.commandLists[i].CopyTo(sys.commandLists[i], a)
+	}
+
 	// sys.luaTables = gs.luaTables
+}
+
+func (src *CommandList) CopyTo(dst *CommandList, a *arena.Arena) {
+	clone := src.clone(a)
+	*dst = clone
 }
 
 func (gs *GameState) SaveState(stateID int) {
 	sys.arenaSaveMap[stateID] = arena.NewArena()
 	a := sys.arenaSaveMap[stateID]
+	gsp := &sys.savePool
 
 	gs.cgi = sys.cgi
 	gs.saved = true
@@ -1088,7 +1099,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.Time = sys.time
 	gs.GameTime = sys.gameTime
 
-	gs.saveCharData(a)
+	gs.saveCharData(a, gsp)
 	gs.saveExplodData(a)
 	gs.cam = sys.cam
 	gs.savePauseData()
@@ -1109,7 +1120,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.bcVar = arena.MakeSlice[BytecodeValue](a, len(sys.bcVar), len(sys.bcVar))
 	copy(gs.bcVar, sys.bcVar)
 
-	gs.stage = sys.stage.clone(a)
+	gs.stage = sys.stage.clone(a, gsp)
 
 	gs.aiInput = sys.aiInput
 	gs.inputRemap = sys.inputRemap
@@ -1243,7 +1254,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.roundType = sys.roundType
 	gs.sel = sys.sel.clone(a)
 	for i := 0; i < len(sys.stringPool); i++ {
-		gs.stringPool[i] = sys.stringPool[i].clone(a)
+		gs.stringPool[i] = sys.stringPool[i].clone(a, gsp)
 	}
 
 	gs.dialogueFlg = sys.dialogueFlg
@@ -1282,9 +1293,9 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.continueFlg = sys.continueFlg
 	gs.stageLoopNo = sys.stageLoopNo
 
-	gs.fight = sys.currentFight.clone(a)
+	gs.fight = sys.currentFight.clone(a, gsp)
 
-	debugWC := sys.debugWC.clone(a)
+	debugWC := sys.debugWC.clone(a, gsp)
 	gs.debugWC = &debugWC
 	gs.commandLists = arena.MakeSlice[*CommandList](a, len(sys.commandLists), len(sys.commandLists))
 	for i := 0; i < len(sys.commandLists); i++ {
@@ -1317,12 +1328,12 @@ func (gs *GameState) savePalFX(a *arena.Arena) {
 	gs.bgPalFX = sys.bgPalFX.clone(a)
 }
 
-func (gs *GameState) saveCharData(a *arena.Arena) {
+func (gs *GameState) saveCharData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range sys.chars {
 		gs.charData[i] = arena.MakeSlice[Char](a, len(sys.chars[i]), len(sys.chars[i]))
 		gs.chars[i] = arena.MakeSlice[*Char](a, len(sys.chars[i]), len(sys.chars[i]))
 		for j, c := range sys.chars[i] {
-			gs.charData[i][j] = c.clone(a)
+			gs.charData[i][j] = c.clone(a, gsp)
 			gs.chars[i][j] = c
 		}
 	}
@@ -1336,13 +1347,13 @@ func (gs *GameState) saveCharData(a *arena.Arena) {
 	}
 
 	if sys.workingChar != nil {
-		c := sys.workingChar.clone(a)
+		c := sys.workingChar.clone(a, gsp)
 		gs.workingChar = &c
 	} else {
 		gs.workingChar = sys.workingChar
 	}
 
-	gs.charList = sys.charList.clone(a)
+	gs.charList = sys.charList.clone(a, gsp)
 
 }
 
@@ -1423,7 +1434,7 @@ func (gs *GameState) charsPersist() bool {
 	return true
 }
 
-func (gs *GameState) loadCharData(a *arena.Arena) {
+func (gs *GameState) loadCharData(a *arena.Arena, gsp *GameStatePool) {
 	for i := 0; i < len(sys.chars); i++ {
 		sys.chars[i] = arena.MakeSlice[*Char](a, len(gs.chars[i]), len(gs.chars[i]))
 		copy(sys.chars[i], gs.chars[i])
@@ -1431,18 +1442,26 @@ func (gs *GameState) loadCharData(a *arena.Arena) {
 
 	for i := 0; i < len(sys.chars); i++ {
 		for j := 0; j < len(sys.chars[i]); j++ {
-			*sys.chars[i][j] = gs.charData[i][j].clone(a)
+			*sys.chars[i][j] = gs.charData[i][j].clone(a, gsp)
+		}
+	}
+
+	for i := range sys.chars {
+		for _, c := range sys.chars[i] {
+			if !c.keyctrl[0] {
+				c.cmd = sys.chars[c.playerNo][0].cmd
+			}
 		}
 	}
 
 	if gs.workingChar != nil {
-		wc := gs.workingChar.clone(a)
+		wc := gs.workingChar.clone(a, gsp)
 		sys.workingChar = &wc
 	} else {
 		sys.workingChar = gs.workingChar
 	}
 
-	sys.charList = gs.charList.clone(a)
+	sys.charList = gs.charList.clone(a, gsp)
 }
 
 func (gs *GameState) loadSuperData(a *arena.Arena) {
@@ -1495,56 +1514,67 @@ func (gs *GameState) loadExplodData(a *arena.Arena) {
 	}
 }
 
-func (gs *GameState) projectliesPersist() bool {
-	for i := 0; i < len(sys.projs); i++ {
-		if len(sys.projs[i]) != len(gs.projs[i]) {
-			return false
-		}
-		for j := 0; j < len(sys.projs[i]); j++ {
-			if sys.projs[i][j].id != gs.projs[i][j].id {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 func (gs *GameState) loadProjectileData(a *arena.Arena) {
-	if gs.projectliesPersist() {
-		for i := range sys.projs {
-			for j := range sys.projs[i] {
-				sys.projs[i][j] = gs.projs[i][j].clone(a)
-			}
+	for i := range gs.projs {
+		sys.projs[i] = arena.MakeSlice[Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
+		for j := range gs.projs[i] {
+			sys.projs[i][j] = gs.projs[i][j].clone(a)
 		}
-	} else {
-		for i := range gs.projs {
-			sys.projs[i] = arena.MakeSlice[Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
-			for j := range gs.projs[i] {
-				sys.projs[i][j] = gs.projs[i][j].clone(a)
-			}
-		}
-
 	}
-
 }
 
-func PoolAlloc(item interface{}) (result interface{}) {
+func (gsp *GameStatePool) Get(item interface{}) (result interface{}) {
+	objs, ok := gsp.poolObjs[gsp.curStateID]
+	if !ok {
+		gsp.poolObjs[gsp.curStateID] = make([]interface{}, 0, 50)
+		objs = gsp.poolObjs[gsp.curStateID]
+	}
+
 	switch item.(type) {
 	case (map[int32][3]*HitScale):
-		return sys.statePool.hitscaleMapPool.Get()
+		objs = append(objs, gsp.hitscaleMapPool.Get())
+		return objs[len(objs)-1]
 	case (map[string]float32):
-		return sys.statePool.stringFloat32MapPool.Get()
+		objs = append(objs, gsp.stringFloat32MapPool.Get())
+		return objs[len(objs)-1]
 	case (map[string]int):
-		return sys.statePool.stringIntMapPool.Get()
+		objs = append(objs, gsp.stringIntMapPool.Get())
+		return objs[len(objs)-1]
 	case (AnimationTable):
-		return sys.statePool.animationTablePool.Get()
-	case ([]map[string]float32):
-		return sys.statePool.mapArraySlicePool.Get()
+		objs = append(objs, gsp.animationTablePool.Get())
+		return objs[len(objs)-1]
 	case (map[int32]*Char):
-		return sys.statePool.int32CharPointerMapPool.Get()
+		objs = append(objs, gsp.int32CharPointerMapPool.Get())
+		return objs[len(objs)-1]
 	default:
 		return nil
 	}
+}
+
+func (gsp *GameStatePool) Put(item interface{}) {
+	switch item.(type) {
+	case (*map[int32][3]*HitScale):
+		gsp.hitscaleMapPool.Put(item)
+	case (*map[string]float32):
+		gsp.stringFloat32MapPool.Put(item)
+	case (*map[string]int):
+		gsp.stringIntMapPool.Put(item)
+	case (*AnimationTable):
+		gsp.animationTablePool.Put(item)
+	case (*map[int32]*Char):
+		gsp.int32CharPointerMapPool.Put(item)
+	default:
+	}
+}
+
+func (gsp *GameStatePool) Free(stateID int) {
+	objs, ok := gsp.poolObjs[stateID]
+	if ok {
+		for i := 0; i < len(objs); i++ {
+			gsp.Put(objs[i])
+		}
+	}
+	delete(gsp.poolObjs, stateID)
 }
 
 func NewGameStatePool() GameStatePool {
@@ -1578,18 +1608,13 @@ func NewGameStatePool() GameStatePool {
 				return &at
 			},
 		},
-		mapArraySlicePool: sync.Pool{
-			New: func() interface{} {
-				ma := make([]map[string]float32, 0, 8)
-				return &ma
-			},
-		},
 		int32CharPointerMapPool: sync.Pool{
 			New: func() interface{} {
 				ic := make(map[int32]*Char)
 				return &ic
 			},
 		},
+		poolObjs: make(map[int][]interface{}),
 	}
 }
 
@@ -1609,4 +1634,6 @@ type GameStatePool struct {
 	animationTablePool      sync.Pool
 	mapArraySlicePool       sync.Pool
 	int32CharPointerMapPool sync.Pool
+	poolObjs                map[int][]interface{}
+	curStateID              int
 }

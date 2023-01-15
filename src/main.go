@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"regexp"
 	"runtime"
@@ -48,6 +51,10 @@ func closeLog(f *os.File) {
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	// Make save directories, if they don't exist
 	os.Mkdir("save", os.ModeSticky|0755)
 	os.Mkdir("save/replays", os.ModeSticky|0755)

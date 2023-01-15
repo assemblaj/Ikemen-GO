@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/exp/maps"
 )
 
 type StageProps struct {
@@ -677,7 +679,7 @@ type Stage struct {
 	stageprops      StageProps
 }
 
-func (s *Stage) clone(a *arena.Arena) (result *Stage) {
+func (s *Stage) clone(a *arena.Arena, gsp *GameStatePool) (result *Stage) {
 	result = &Stage{}
 	*result = *s
 
@@ -689,7 +691,8 @@ func (s *Stage) clone(a *arena.Arena) (result *Stage) {
 		result.constants[k] = v
 	}
 
-	result.at = make(AnimationTable)
+	result.at = *gsp.Get(s.at).(*AnimationTable)
+	maps.Clear(result.at)
 	for k, v := range s.at {
 		result.at[k] = v.clone(a)
 	}

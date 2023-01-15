@@ -74,6 +74,7 @@ func (r *RollbackSession) IsConnected() bool {
 }
 
 func (g *RollbackSession) SaveGameState(stateID int) int {
+	sys.savePool.curStateID = stateID
 	sys.rollbackStateID = stateID
 	oldest := stateID + 1%(MaxSaveStates+2)
 	if _, ok := sys.arenaSaveMap[oldest]; ok {
@@ -81,11 +82,13 @@ func (g *RollbackSession) SaveGameState(stateID int) int {
 		sys.arenaSaveMap[oldest] = nil
 		delete(sys.arenaSaveMap, oldest)
 	}
+	sys.savePool.Free(oldest)
 	if _, ok := sys.arenaSaveMap[stateID]; ok {
 		sys.arenaSaveMap[stateID].Free()
 		sys.arenaSaveMap[stateID] = nil
 		delete(sys.arenaSaveMap, stateID)
 	}
+	sys.savePool.Free(stateID)
 
 	g.saveStates[stateID] = sys.statePool.gameStatePool.Get().(*GameState)
 	g.saveStates[stateID].SaveState(stateID)
@@ -93,27 +96,29 @@ func (g *RollbackSession) SaveGameState(stateID int) int {
 	//fmt.Printf("Save state for stateID: %d\n", stateID)
 	//fmt.Println(g.saveStates[stateID])
 
-	//checksum := g.saveStates[stateID].Checksum()
+	checksum := g.saveStates[stateID].Checksum()
 	//fmt.Printf("checksum: %d\n", checksum)
-	//return checksum
-	return ggpo.DefaultChecksum
+	return checksum
+	//return ggpo.DefaultChecksum
 }
 
 var lastLoadedFrame int = -1
 
 func (g *RollbackSession) LoadGameState(stateID int) {
+	sys.loadPool.curStateID = stateID
 	// if _, ok := sys.arenaLoadMap[stateID]; ok {
 	// 	sys.arenaLoadMap[stateID].Free()
 	// 	sys.arenaLoadMap[stateID] = nil
 	// 	delete(sys.arenaLoadMap, stateID)
 	// }
-	for sid := range sys.arenaLoadMap {
-		if sid != lastLoadedFrame {
-			sys.arenaLoadMap[sid].Free()
-			sys.arenaLoadMap[sid] = nil
-			delete(sys.arenaLoadMap, sid)
-		}
-	}
+	// for sid := range sys.arenaLoadMap {
+	// 	if sid != lastLoadedFrame {
+	// 		sys.arenaLoadMap[sid].Free()
+	// 		sys.arenaLoadMap[sid] = nil
+	// 		delete(sys.arenaLoadMap, sid)
+	// 	}
+	// }
+	sys.loadPool.Free(stateID)
 
 	// fmt.Printf("Loaded state for stateID: %d\n", stateID)
 	// fmt.Println(g.saveStates[stateID])
@@ -151,6 +156,13 @@ func (g *RollbackSession) AdvanceFrame(flags int) {
 		sys.runNextRound()
 
 		sys.updateStage()
+
+		// update lua
+		for i := 0; i < len(inputs); i++ {
+			sys.commandLists[i].Buffer.InputBits(input[i], 1)
+			sys.commandLists[i].Step(1, false, false, 0)
+		}
+
 		sys.action(input)
 
 		sys.handleFlags()

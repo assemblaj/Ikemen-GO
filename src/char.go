@@ -7,6 +7,8 @@ import (
 	"math"
 	"os"
 	"strings"
+
+	"golang.org/x/exp/maps"
 )
 
 const MaxPalNo = 12
@@ -1998,13 +2000,14 @@ func (c *Char) childrenStateEqual(cs []CharState) bool {
 
 }
 
-func (c *Char) clone(a *arena.Arena) (result Char) {
+func (c *Char) clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	result = Char{}
 	result = *c
 
 	result.aimg = c.aimg.clone(a)
 
-	result.nextHitScale = make(map[int32][3]*HitScale)
+	result.nextHitScale = *gsp.Get(c.nextHitScale).(*map[int32][3]*HitScale)
+	maps.Clear(result.nextHitScale)
 	for i, v := range c.nextHitScale {
 		hitScale := [3]*HitScale{}
 		for i := 0; i < len(v); i++ {
@@ -2015,7 +2018,8 @@ func (c *Char) clone(a *arena.Arena) (result Char) {
 		result.nextHitScale[i] = hitScale
 	}
 
-	result.activeHitScale = make(map[int32][3]*HitScale)
+	result.activeHitScale = *gsp.Get(c.activeHitScale).(*map[int32][3]*HitScale)
+	maps.Clear(result.activeHitScale)
 	for i, v := range c.activeHitScale {
 		hitScale := [3]*HitScale{}
 		for i := 0; i < len(v); i++ {
@@ -2070,7 +2074,8 @@ func (c *Char) clone(a *arena.Arena) (result Char) {
 
 	result.ss = c.ss.clone(a)
 
-	result.mapArray = make(map[string]float32)
+	result.mapArray = *gsp.Get(c.mapArray).(*map[string]float32)
+	maps.Clear(result.mapArray)
 	for k, v := range c.mapArray {
 		result.mapArray[k] = v
 	}
@@ -6322,7 +6327,7 @@ type CharList struct {
 	idMap               map[int32]*Char
 }
 
-func (cl *CharList) clone(a *arena.Arena) (result CharList) {
+func (cl *CharList) clone(a *arena.Arena, gsp *GameStatePool) (result CharList) {
 	result = *cl
 
 	// Manually copy references that shallow copy poorly, as needed
@@ -6333,7 +6338,8 @@ func (cl *CharList) clone(a *arena.Arena) (result CharList) {
 	result.drawOrder = arena.MakeSlice[*Char](a, len(cl.drawOrder), len(cl.drawOrder))
 	copy(result.drawOrder, cl.drawOrder)
 
-	result.idMap = make(map[int32]*Char)
+	result.idMap = *gsp.Get(cl.idMap).(*map[int32]*Char)
+	maps.Clear(result.idMap)
 	for k, v := range cl.idMap {
 		result.idMap[k] = v
 	}
