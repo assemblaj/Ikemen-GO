@@ -1667,8 +1667,8 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "replayRecord", func(*lua.LState) int {
-		if sys.rollbackNetwork != nil {
-			sys.rollbackNetwork.rep, _ = os.Create(strArg(l, 1))
+		if sys.netInput != nil {
+			sys.netInput.rep, _ = os.Create(strArg(l, 1))
 		}
 		return 0
 	})

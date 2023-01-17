@@ -28,7 +28,38 @@ type RollbackSession struct {
 	currentPlayerHandle ggpo.PlayerHandle
 	loopTimer           LoopTimer
 	FPS                 int
+	inputs              [][MaxSimul*2 + MaxAttachedChar]InputBits
 }
+
+func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
+	for len(rs.inputs) <= int(time) {
+		rs.inputs = append(rs.inputs, [MaxSimul*2 + MaxAttachedChar]InputBits{})
+	}
+	rs.inputs[time][player] = input
+}
+
+func (rs *RollbackSession) SaveReplay() {
+	if rs.rep != nil {
+		size := len(rs.inputs) * (MaxSimul*2 + MaxAttachedChar) * 4
+		buf := make([]byte, size)
+		offset := 0
+		for i := range rs.inputs {
+			inputBuf := rs.inputToBytes(i)
+			copy(buf[offset:offset+len(inputBuf)], inputBuf)
+			offset += len(inputBuf)
+		}
+		rs.rep.Write(buf)
+	}
+}
+
+func (rs *RollbackSession) inputToBytes(time int) []byte {
+	buf := []byte{}
+	for i := 0; i < MaxSimul*2+MaxAttachedChar; i++ {
+		buf = append(buf, writeI32(int32(rs.inputs[time][i]))...)
+	}
+	return buf
+}
+
 type LoopTimer struct {
 	lastAdvantage      float32
 	usPergameLoop      time.Duration

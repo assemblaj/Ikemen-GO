@@ -2416,6 +2416,11 @@ func (s *System) runFrame() bool {
 		values, result = s.rollbackNetwork.backend.SyncInput(&disconnectFlags)
 		inputs := decodeInputs(values)
 		if result == nil {
+			if s.rollbackNetwork.rep != nil {
+				s.rollbackNetwork.SetInput(sys.gameTime, 0, inputs[0])
+				s.rollbackNetwork.SetInput(sys.gameTime, 1, inputs[1])
+			}
+
 			s.step = false
 			s.runShortcutScripts()
 
@@ -2693,6 +2698,7 @@ func (s *System) fight() (reload bool) {
 			sys.rollbackNetwork.backend.Idle(0)
 		}
 		sys.netInput.Close()
+		sys.rollbackNetwork.rep = sys.netInput.rep
 		sys.netInput = nil
 	} else if sys.netInput == nil && sys.rollbackNetwork == nil {
 		GameInitSyncTest(2)
@@ -2734,7 +2740,7 @@ func (s *System) fight() (reload bool) {
 		sys.rollbackUpdate(s.rollbackNetwork.loopTimer.usToWaitThisLoop())
 		//}
 	}
-
+	s.rollbackNetwork.SaveReplay()
 	return false
 }
 
