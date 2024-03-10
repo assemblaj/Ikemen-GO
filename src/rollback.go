@@ -2,8 +2,9 @@ package main
 
 import (
 	"math"
+	"strings"
 	"time"
-
+	
 	ggpo "github.com/assemblaj/ggpo"
 	lua "github.com/yuin/gopher-lua"
 )
@@ -966,7 +967,20 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 			for _, c := range p {
 				if c.helperIndex == 0 ||
 					c.helperIndex > 0 && &c.cmd[0] != &r.cmd[0] {
-					if i < len(ib) {
+					
+					if c.key >= 0 {
+						if c.playerNo >= 0 && c.playerNo < len(ib) && !strings.Contains(sys.gameMode, "coop") { 
+							c.cmd[0].Buffer.InputBits(ib[c.playerNo], int32(c.facing))
+						} else if strings.Contains(sys.gameMode, "coop") {
+							var coopIdx int 
+							if i > 1 {
+								coopIdx = i - 1
+							}
+							c.cmd[0].Buffer.InputBits(ib[coopIdx],  int32(c.facing))
+						}
+					}
+					/*
+					else if i < len(ib) {
 						if sys.gameMode == "watch" && (c.key < 0 && ^c.key < len(sys.aiInput)) {
 							sys.aiInput[^c.key].Update(sys.com[i])
 						}
@@ -978,7 +992,7 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 					} else {
 						// Otherwise, this will ostensibly update the buffers based on AIInput
 						c.cmd[0].Input(c.key, int32(c.facing), sys.com[i], c.inputFlag)
-					}
+					}*/
 					hp := c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0
 					buftime := Btoi(hp && c.gi().ver[0] != 1)
 					if sys.super > 0 {
@@ -992,6 +1006,21 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 					}
 					for j := range c.cmd {
 						c.cmd[j].Step(int32(c.facing), c.key < 0, hp, buftime+Btoi(hp))
+					}
+				}
+			}
+			if r.key < 0 {
+				cc := int32(-1)
+				// AI Scaling
+				// TODO: Balance AI Scaling
+				if r.roundState() == 2 && RandF32(0, sys.com[i]/2+32) > 32 {
+					cc = Rand(0, int32(len(r.cmd[r.ss.sb.playerNo].Commands))-1)
+				} else {
+					cc = -1
+				}
+				for j := range p {
+					if p[j].helperIndex >= 0 {
+						p[j].cpucmd = cc
 					}
 				}
 			}
