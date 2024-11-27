@@ -5,6 +5,8 @@ github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d h1:2xp1BQbqcDDaik
 github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d/go.mod h1:peYoMncQljjNS6tZwI9WVyQB3qZS6u79/N3mBOcnd3I=
 github.com/assemblaj/glfont v0.0.0-20241126162135-24ea288f7727 h1:zH13NpSeS8hmX9JQwcaHEHazBE9pacaJVI7r6PItLK0=
 github.com/assemblaj/glfont v0.0.0-20241126162135-24ea288f7727/go.mod h1:mANzFf/oI0nHmhImB7GWXFHaJUs2LIW+Py1GyRSAjIk=
+github.com/assemblaj/glfont v0.0.0-20241127123931-9e46299c2ce0 h1:4tVHppozubXvwyZmvDUM+qRjhI5bnftM/EInPLQwj5s=
+github.com/assemblaj/glfont v0.0.0-20241127123931-9e46299c2ce0/go.mod h1:mANzFf/oI0nHmhImB7GWXFHaJUs2LIW+Py1GyRSAjIk=
 github.com/assemblaj/glh v0.0.0-20241127093815-a55004836497 h1:hjQlKjXEmZYu+2k3AKeSIJ8bMusQeNVRGt6a2eVbBoM=
 github.com/assemblaj/glh v0.0.0-20241127093815-a55004836497/go.mod h1:zOkMU61wzplbdVYX+sPWA4TmvPn6KNsI/3N8HsMKrok=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
