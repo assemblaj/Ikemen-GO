@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"runtime"
 	"slices"
 	"unsafe"
 
@@ -410,7 +411,9 @@ func processBatchOptimized(batch []RenderUniformData, start int32, total int32) 
 	}
 
 	//UIMode = srd.UIMode
-	gfx.Scissor(srd.window[0], srd.window[1], srd.window[2], srd.window[3])
+	if runtime.GOOS == "darwin" || srd.forSprite {
+		gfx.Scissor(srd.window[0], srd.window[1], srd.window[2], srd.window[3])
+	}
 	gfx.SetPipeline(srd.eq, srd.src, srd.dst)
 
 	var names []string
