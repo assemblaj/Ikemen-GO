@@ -60,8 +60,8 @@ type FragmentUniforms struct {
 	alpha    float32
 	hue      float32
 	gray     float32
-	add      [3]float32
-	mult     [3]float32
+	add      [4]float32
+	mult     [4]float32
 	mask     int32
 	bitmask  int32
 	isFlat   int32
@@ -90,8 +90,11 @@ func (f *FragmentUniforms) String() string {
 	str = str + fmt.Sprintf("Hue: %f\n", f.hue)
 	return str
 }
-func (f *FragmentUniforms) createBitMask() int32 {
-	return (f.isFlat << 0) | (f.isRgba << 1) | (f.isTrapez << 2) | (f.neg << 3)
+func (f *FragmentUniforms) createBitMask() uint32 {
+	return (uint32(f.isFlat) << 0) |
+		(uint32(f.isRgba) << 1) |
+		(uint32(f.isTrapez) << 2) |
+		(uint32(f.neg) << 3)
 }
 
 func (f *FragmentUniforms) ToBytes() []byte {
@@ -101,15 +104,12 @@ func (f *FragmentUniforms) ToBytes() []byte {
 	err = binary.Write(buf, binary.LittleEndian, f.alpha)
 	err = binary.Write(buf, binary.LittleEndian, f.hue)
 	err = binary.Write(buf, binary.LittleEndian, f.gray)
-	err = binary.Write(buf, binary.LittleEndian, float32(0))
+	err = binary.Write(buf, binary.LittleEndian, float32(0)) // Padding
 	err = binary.Write(buf, binary.LittleEndian, f.add[:])
-	err = binary.Write(buf, binary.LittleEndian, float32(0))
 	err = binary.Write(buf, binary.LittleEndian, f.mult[:])
-	err = binary.Write(buf, binary.LittleEndian, float32(0))
 	err = binary.Write(buf, binary.LittleEndian, f.mask)
 	err = binary.Write(buf, binary.LittleEndian, f.createBitMask())
-	err = binary.Write(buf, binary.LittleEndian, float32(0))
-	err = binary.Write(buf, binary.LittleEndian, float32(0))
+	err = binary.Write(buf, binary.LittleEndian, uint64(0)) // Final padding
 
 	if err != nil {
 		log.Fatalf("binary.Write failed: %v", err)
@@ -141,13 +141,21 @@ type IndexUniforms struct {
 	TexLayer           int32
 }
 
+// packIndex packs an IndexUniforms into a uint32
+func (i *IndexUniforms) packIndex() uint32 {
+	return uint32((i.VertexUniformIndex & 0x1F) | // 5 bits for VertexUniformIndex
+		((i.FragUniformIndex & 0x7F) << 5) | // 7 bits for FragUniformIndex
+		((i.PalLayer & 0x1FF) << 12) | // 9 bits for PalLayer
+		((i.TexLayer & 0x3F) << 21)) // 6 bits for TexLayer
+}
+
 func (i *IndexUniforms) ToBytes() []byte {
 	buf := new(bytes.Buffer)
 
-	packedIndex := (i.VertexUniformIndex & 0x1F) |
-		((i.FragUniformIndex & 0x3F) << 5) |
-		((i.PalLayer & 0x1FF) << 11) |
-		((i.TexLayer & 0x7F) << 20)
+	packedIndex := uint32((i.VertexUniformIndex & 0x1F) | // 5 bits for VertexUniformIndex
+		((i.FragUniformIndex & 0x7F) << 5) | // 7 bits for FragUniformIndex
+		((i.PalLayer & 0x1FF) << 12) | // 9 bits for PalLayer
+		((i.TexLayer & 0x3F) << 21)) // 6 bits for TexL
 
 	err := binary.Write(buf, binary.LittleEndian, packedIndex)
 
@@ -212,12 +220,22 @@ type BatchRenderingState struct {
 }
 
 func batchF32Encode(data []float32) []byte {
+	// Preallocate the buffer to avoid multiple reallocations.
+	requiredCapacity := len(data) * 4 // Each float32 needs 4 bytes.
+	if cap(batchRenderer.state.batchGlobals.floatConvertBuffer) < requiredCapacity {
+		batchRenderer.state.batchGlobals.floatConvertBuffer = make([]byte, 0, requiredCapacity)
+	}
+	// Reset the buffer without reallocating memory.
 	batchRenderer.state.batchGlobals.floatConvertBuffer = batchRenderer.state.batchGlobals.floatConvertBuffer[:0]
+
+	// Use a single buffer for encoding.
 	for _, f := range data {
 		u := math.Float32bits(f)
-		b := make([]byte, 4)
-		binary.LittleEndian.PutUint32(b, u)
-		batchRenderer.state.batchGlobals.floatConvertBuffer = append(batchRenderer.state.batchGlobals.floatConvertBuffer, b...)
+		// Directly append bytes to the buffer.
+		batchRenderer.state.batchGlobals.floatConvertBuffer = append(
+			batchRenderer.state.batchGlobals.floatConvertBuffer,
+			byte(u), byte(u>>8), byte(u>>16), byte(u>>24),
+		)
 	}
 	return batchRenderer.state.batchGlobals.floatConvertBuffer
 }
@@ -240,16 +258,13 @@ func BatchRender() {
 		return
 	}
 
-	// Set the global vertex data once.
-	gfx.SetVertexData(vertices...)
-
 	// 'first' tracks the starting vertex index of the current batch.
 	var first int32 = 0
 	// 'count' will now be calculated per batch within the loop.
 	var count int32 = 0
-
 	totalVertices := len(vertices) / 4
 	indexUniforms := make([]IndexUniforms, 0, totalVertices)
+	packedIndexUniforms := make([]float32, 0, totalVertices)
 
 	for i, entry := range batchRenderer.state.paramList {
 		if i == 0 {
@@ -317,11 +332,30 @@ func BatchRender() {
 			indexUniform.VertexUniformIndex = int32(vertexIndex)
 			for i := 0; i < int(numVertices); i++ {
 				indexUniforms = append(indexUniforms, indexUniform)
+				packedIndexUniforms = append(packedIndexUniforms, float32(indexUniform.packIndex()))
 			}
 		}
 	}
 
-	gfx.UploadIndexUniformUBO(indexUniforms)
+	// Result slice with a capacity of the combined slices
+	result := make([]float32, 0, len(vertices)+(len(packedIndexUniforms)*1))
+
+	// Add index after every vertex
+	for i := 0; i < len(vertices); i += 4 {
+		// Append vertex components
+		result = append(result, vertices[i:i+4]...)
+
+		// Append corresponding index (converted to float32)
+		if i/4 < len(packedIndexUniforms) {
+			result = append(result, float32(packedIndexUniforms[i/4]))
+		}
+	}
+
+	// gfx.UploadIndexUniformUBOClustered(indexUniforms)
+	// Set the global vertex data once.
+	gfx.SetVertexData(result...)
+
+	// gfx.UploadIndexUniformUBO(indexUniforms)
 	gfx.UploadFragmentUBO(uniqueFrags)
 	gfx.UploadVertexUBO(uniqueVertexData)
 	gfx.BindUBOs()
@@ -329,7 +363,7 @@ func BatchRender() {
 	count = 0
 
 	for _, batch := range batches {
-		count = int32(getNumVertices(batch))
+		count = int32(getNumVertices2(batch))
 		if count > 0 || batch[0].isTTF {
 			processBatchOptimized(batch, first, count)
 		}
@@ -382,6 +416,20 @@ func getNumVertices(batch []RenderUniformData) int {
 	return totalVertices / 4
 }
 
+func getNumVertices2(batch []RenderUniformData) int {
+	totalVertices := 0
+	for _, entry := range batch {
+		vertexCount := len(entry.vertexData)
+		totalVertices += vertexCount
+
+		// Add 1 to totalVertices after every 4 vertices
+		totalVertices += vertexCount / 4
+	}
+
+	// Divide totalVertices by 5
+	return totalVertices / 5
+}
+
 func getUniqueTextures(batch []RenderUniformData) []uint32 {
 	uniqueTextures := make([]uint32, 0, 15)
 	for i := 0; i < len(batch); i++ {
@@ -402,7 +450,6 @@ func processBatchOptimized(batch []RenderUniformData, start int32, total int32) 
 			uniqueTextures = append(uniqueTextures, batch[i].tex)
 		}
 	}
-	//var indices []int32
 
 	srd := batch[0]
 	if srd.isTTF {
@@ -455,11 +502,9 @@ func (r *RenderUniformData) Serialize() ([]byte, error) {
 	if err := binary.Write(buf, binary.LittleEndian, int32(r.dst)); err != nil {
 		return nil, err
 	}
-
 	if err := binary.Write(buf, binary.LittleEndian, r.isTTF); err != nil {
 		return nil, err
 	}
-
 	return buf.Bytes(), nil
 }
 
@@ -526,7 +571,6 @@ func CalculateRenderData(rp RenderParams) {
 
 	// gfx.Scissor(rp.window[0], rp.window[1], rp.window[2], rp.window[3])
 	renderWithBlending(func(eq BlendEquation, src, dst BlendFunc, a float32) {
-		rmTileSubBatch(modelview, rp, &rd)
 		rd.tex = rp.tex.handle
 		rd.texLayer = rp.tex.layer
 		rd.eq = eq
@@ -567,17 +611,16 @@ func CalculateRenderData(rp RenderParams) {
 		rd.fragUniforms.neg = int32(Btoi(neg))
 		rd.fragUniforms.gray = grayscale
 		rd.fragUniforms.hue = hue
-		rd.fragUniforms.add = padd
-		rd.fragUniforms.mult = pmul
+		rd.fragUniforms.add = [4]float32{padd[0], padd[1], padd[2], 0}
+		rd.fragUniforms.mult = [4]float32{pmul[0], pmul[1], pmul[2], 0}
 		rd.fragUniforms.tint = tint
 		rd.fragUniforms.alpha = a
-
+		rd.trans = rp.trans
 		rd.vertUniforms.Projection = proj
-		BatchParam(&rd)
+		rmTileSubBatch(modelview, rp, &rd)
 		rd.seqNo = batchRenderer.state.curSDRSeqNo
 		batchRenderer.state.curSDRSeqNo++
-		// fmt.Printf("In Prerender: eq: %d src %d dst %d a %f seqNo: %d \n", eq, src, dst, a, rd.seqNo)
-
+		BatchParam(&rd)
 	}, rp.trans, rp.paltex != nil, invblend, &neg, &padd, &pmul, rp.paltex == nil)
 }
 
@@ -588,28 +631,29 @@ func BatchParam(rp *RenderUniformData) {
 }
 
 func (r *RenderUniformData) AppendVertexData(vertices []float32) {
-	data := batchF32Encode(vertices)
+	// data := batchF32Encode(vertices)
 
-	hash := xxhash.Sum64(data)
-	if _, ok := r.vertexDataCache[hash]; !ok {
-		r.vertexData = append(r.vertexData, vertices...)
-		r.vertexDataCache[hash] = true
-	}
+	// hash := xxhash.Sum64(data)
+	// if _, ok := r.vertexDataCache[hash]; !ok {
+	r.vertexData = append(r.vertexData, vertices...)
+	// r.vertexDataCache[hash] = true
+	// } else {
+	// 	fmt.Println("I'm actually using the cache.")
+	// }
 }
 
 // Render a quad with optional horizontal tiling
-func rmTileHSubBatch(rd *RenderUniformData, modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, width float32,
-	tl Tiling, rcx float32) {
+func rmTileHSubBatch2(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, width float32, rp RenderParams, rd *RenderUniformData) {
 	//            p3
 	//    p4 o-----o-----o- - -o
 	//      /      |      \     ` .
 	//     /       |       \       `.
 	//    o--------o--------o- - - - o
 	//   p1         p2
-	topdist := (x3 - x4) * (1 + float32(tl.xspacing)/width)
-	botdist := (x2 - x1) * (1 + float32(tl.xspacing)/width)
+	topdist := (x3 - x4) * (((float32(rp.tile.xspacing) + width) / rp.xas) / width)
+	botdist := (x2 - x1) * (((float32(rp.tile.xspacing) + width) / rp.xas) / width)
 	if AbsF(topdist) >= 0.01 {
-		db := (x4 - rcx) * (botdist - topdist) / AbsF(topdist)
+		db := (x4 - rp.rcx) * (botdist - topdist) / AbsF(topdist)
 		x1 += db
 		x2 += db
 	}
@@ -617,56 +661,38 @@ func rmTileHSubBatch(rd *RenderUniformData, modelview mgl.Mat4, x1, y1, x2, y2, 
 	// Compute left/right tiling bounds (or right/left when topdist < 0)
 	xmax := float32(sys.scrrect[2])
 	left, right := int32(0), int32(1)
-	if topdist >= 0.01 {
-		left = 1 - int32(math.Ceil(float64(MaxF(x3/topdist, x2/botdist))))
-		right = int32(math.Ceil(float64(MaxF((xmax-x4)/topdist, (xmax-x1)/botdist))))
-	} else if topdist <= -0.01 {
-		left = 1 - int32(math.Ceil(float64(MaxF((xmax-x3)/-topdist, (xmax-x2)/-botdist))))
-		right = int32(math.Ceil(float64(MaxF(x4/-topdist, x1/-botdist))))
+	if rp.tile.xflag != 0 {
+		if topdist >= 0.01 {
+			left = 1 - int32(math.Ceil(float64(MaxF(x3/topdist, x2/botdist))))
+			right = int32(math.Ceil(float64(MaxF((xmax-x4)/topdist, (xmax-x1)/botdist))))
+		} else if topdist <= -0.01 {
+			left = 1 - int32(math.Ceil(float64(MaxF((xmax-x3)/-topdist, (xmax-x2)/-botdist))))
+			right = int32(math.Ceil(float64(MaxF(x4/-topdist, x1/-botdist))))
+		}
+		if rp.tile.xflag != 1 {
+			left = 0
+			right = Min(right, Max(rp.tile.xflag, 1))
+		}
 	}
 
-	if tl.xflag != 1 {
-		left = 0
-		right = Min(right, Max(tl.xflag, 1))
-	}
-
-	buffer := make([]float32, 0)
-	xs := make([][]float32, 0)
 	// Draw all quads in one loop
 	for n := left; n < right; n++ {
 		x1d, x2d := x1+float32(n)*botdist, x2+float32(n)*botdist
 		x3d, x4d := x3+float32(n)*topdist, x4+float32(n)*topdist
-		buffer = append(buffer, []float32{
-			x2d, y2, 1, 1,
-			x3d, y3, 1, 0,
-			x1d, y1, 0, 1,
-
-			x1d, y1, 0, 1,
-			x3d, y3, 1, 0,
-			x4d, y4, 0, 0,
-		}...)
-		xs = append(xs, []float32{x1d, x2d, x4d, x3d})
-	}
-	if len(buffer) > 0 {
-		if rd == nil {
-			gfx.SetVertexData(buffer...)
-			vertex := int32(0)
-			for i := 0; i < len(xs); i++ {
-				gfx.SetUniformMatrix("modelview", modelview[:])
-				gfx.SetUniformF("x1x2x4x3", xs[i][0], xs[i][1], xs[i][2], xs[i][3]) // this uniform is optional
-				gfx.RenderQuadAtIndex(vertex)
-				vertex += 4
-			}
-		} else {
-			rd.modelView = modelview
-			rd.vertUniforms.Modelview = modelview
-			rd.AppendVertexData(buffer)
+		mat := modelview
+		if !rp.rot.IsZero() {
+			mat = mat.Mul4(mgl.Translate3D(rp.rcx+float32(n)*botdist, rp.rcy+dy, 0))
+			//modelview = modelview.Mul4(mgl.Scale3D(1, rp.vs, 1))
+			mat = mat.Mul4(mgl.Rotate3DZ(rp.rot.angle * math.Pi / 180.0).Mat4())
+			mat = mat.Mul4(mgl.Translate3D(-(rp.rcx + float32(n)*botdist), -(rp.rcy + dy), 0))
 		}
+
+		drawQuadsBatch(rd, mat, x1d, y1, x2d, y2, x3d, y3, x4d, y4)
 	}
 }
 
 func rmTileSubBatch(modelview mgl.Mat4, rp RenderParams, rd *RenderUniformData) {
-	x1, y1 := rp.x+rp.rxadd*rp.ys*float32(rp.size[1]), rp.rcy+((rp.y-rp.ys*float32(rp.size[1]))-rp.rcy)*rp.vs
+	x1, y1 := rp.x, rp.rcy+((rp.y-rp.ys*float32(rp.size[1]))-rp.rcy)*rp.vs
 	x2, y2 := x1+rp.xbs*float32(rp.size[0]), y1
 	x3, y3 := rp.x+rp.xts*float32(rp.size[0]), rp.rcy+(rp.y-rp.rcy)*rp.vs
 	x4, y4 := rp.x, y3
@@ -676,21 +702,18 @@ func rmTileSubBatch(modelview mgl.Mat4, rp RenderParams, rd *RenderUniformData) 
 	//} else {
 	//	pers = AbsF(rp.xbs) / AbsF(rp.xts)
 	//}
-	if !rp.rot.IsZero() {
-		//	kaiten(&x1, &y1, float64(agl), rcx, rcy, vs)
-		//	kaiten(&x2, &y2, float64(agl), rcx, rcy, vs)
-		//	kaiten(&x3, &y3, float64(agl), rcx, rcy, vs)
-		//	kaiten(&x4, &y4, float64(agl), rcx, rcy, vs)
+	if !rp.rot.IsZero() && rp.tile.xflag == 0 && rp.tile.yflag == 0 {
+
 		if rp.vs != 1 {
 			y1 = rp.rcy + ((rp.y - rp.ys*float32(rp.size[1])) - rp.rcy)
 			y2 = y1
-			y3 = rp.rcy + (rp.y - rp.rcy)
+			y3 = rp.y
 			y4 = y3
 		}
 		if rp.projectionMode == 0 {
 			modelview = modelview.Mul4(mgl.Translate3D(rp.rcx, rp.rcy, 0))
 		} else if rp.projectionMode == 1 {
-			//This is the inverse of the orthographic projection matrix
+			// This is the inverse of the orthographic projection matrix
 			matrix := mgl.Mat4{float32(sys.scrrect[2] / 2.0), 0, 0, 0, 0, float32(sys.scrrect[3] / 2), 0, 0, 0, 0, -65535, 0, float32(sys.scrrect[2] / 2), float32(sys.scrrect[3] / 2), 0, 1}
 			modelview = modelview.Mul4(mgl.Translate3D(0, -float32(sys.scrrect[3]), rp.fLength))
 			modelview = modelview.Mul4(matrix)
@@ -706,20 +729,33 @@ func rmTileSubBatch(modelview mgl.Mat4, rp RenderParams, rd *RenderUniformData) 
 			modelview = modelview.Mul4(mgl.Translate3D(rp.xOffset, -rp.yOffset, -rp.fLength))
 		}
 
+		// Apply shear matrix before rotation
+		shearMatrix := mgl.Mat4{
+			1, 0, 0, 0,
+			rp.rxadd, 1, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1}
+		modelview = modelview.Mul4(shearMatrix)
+		modelview = modelview.Mul4(mgl.Translate3D(rp.rxadd*rp.ys*float32(rp.size[1]), 0, 0))
+
 		modelview = modelview.Mul4(mgl.Scale3D(1, rp.vs, 1))
 		modelview = modelview.Mul4(
 			mgl.Rotate3DX(-rp.rot.xangle * math.Pi / 180.0).Mul3(
 				mgl.Rotate3DY(rp.rot.yangle * math.Pi / 180.0)).Mul3(
 				mgl.Rotate3DZ(rp.rot.angle * math.Pi / 180.0)).Mat4())
 		modelview = modelview.Mul4(mgl.Translate3D(-rp.rcx, -rp.rcy, 0))
+
 		drawQuadsBatch(rd, modelview, x1, y1, x2, y2, x3, y3, x4, y4)
 		return
 	}
-
 	if rp.tile.yflag == 1 && rp.xbs != 0 {
+		x1 += rp.rxadd * rp.ys * float32(rp.size[1])
+		x2 = x1 + rp.xbs*float32(rp.size[0])
 		x1d, y1d, x2d, y2d, x3d, y3d, x4d, y4d := x1, y1, x2, y2, x3, y3, x4, y4
+		n := 0
+		var xy []float32
 		for {
-			x1d, y1d = x4d, y4d+rp.ys*rp.vs*float32(rp.tile.yspacing)
+			x1d, y1d = x4d, y4d+rp.ys*rp.vs*((float32(rp.tile.yspacing)+float32(rp.size[1]))/rp.yas-float32(rp.size[1]))
 			x2d, y2d = x3d, y1d
 			x3d = x4d - rp.rxadd*rp.ys*float32(rp.size[1]) + (rp.xts/rp.xbs)*(x3d-x4d)
 			y3d = y2d + rp.ys*rp.vs*float32(rp.size[1])
@@ -728,24 +764,34 @@ func rmTileSubBatch(modelview mgl.Mat4, rp RenderParams, rd *RenderUniformData) 
 				break
 			}
 			y4d = y3d
-			if rp.ys*(float32(rp.size[1])+float32(rp.tile.yspacing)) < 0 {
+			if rp.ys*((float32(rp.tile.yspacing)+float32(rp.size[1]))/rp.yas) < 0 {
 				if y1d <= float32(-sys.scrrect[3]) && y4d <= float32(-sys.scrrect[3]) {
 					break
 				}
 			} else if y1d >= 0 && y4d >= 0 {
 				break
 			}
+			n += 1
+			xy = append(xy, x1d, x2d, x3d, x4d, y1d, y2d, y3d, y4d)
+		}
+		for {
+			if len(xy) == 0 {
+				break
+			}
+			x1d, x2d, x3d, x4d, y1d, y2d, y3d, y4d, xy = xy[len(xy)-8], xy[len(xy)-7], xy[len(xy)-6], xy[len(xy)-5], xy[len(xy)-4], xy[len(xy)-3], xy[len(xy)-2], xy[len(xy)-1], xy[:len(xy)-8]
 			if (0 > y1d || 0 > y4d) &&
 				(y1d > float32(-sys.scrrect[3]) || y4d > float32(-sys.scrrect[3])) {
-				rmTileHSubBatch(rd, modelview, x1d, y1d, x2d, y2d, x3d, y3d, x4d, y4d,
-					float32(rp.size[0]), rp.tile, rp.rcx)
+				rmTileHSubBatch2(modelview, x1d, y1d, x2d, y2d, x3d, y3d, x4d, y4d, y1d-y1, float32(rp.size[0]), rp, rd)
 			}
 		}
 	}
 	if rp.tile.yflag == 0 || rp.xts != 0 {
+		x1 += rp.rxadd * rp.ys * float32(rp.size[1])
+		x2 = x1 + rp.xbs*float32(rp.size[0])
 		n := rp.tile.yflag
+		oy := y1
 		for {
-			if rp.ys*(float32(rp.size[1])+float32(rp.tile.yspacing)) > 0 {
+			if rp.ys*((float32(rp.tile.yspacing)+float32(rp.size[1]))/rp.yas) > 0 {
 				if y1 <= float32(-sys.scrrect[3]) && y4 <= float32(-sys.scrrect[3]) {
 					break
 				}
@@ -754,8 +800,8 @@ func rmTileSubBatch(modelview mgl.Mat4, rp RenderParams, rd *RenderUniformData) 
 			}
 			if (0 > y1 || 0 > y4) &&
 				(y1 > float32(-sys.scrrect[3]) || y4 > float32(-sys.scrrect[3])) {
-				rmTileHSubBatch(rd, modelview, x1, y1, x2, y2, x3, y3, x4, y4,
-					float32(rp.size[0]), rp.tile, rp.rcx)
+				rmTileHSubBatch2(modelview, x1, y1, x2, y2, x3, y3, x4, y4, y1-oy,
+					float32(rp.size[0]), rp, rd)
 			}
 			if rp.tile.yflag != 1 && n != 0 {
 				n--
@@ -763,7 +809,7 @@ func rmTileSubBatch(modelview mgl.Mat4, rp RenderParams, rd *RenderUniformData) 
 			if n == 0 {
 				break
 			}
-			x4, y4 = x1, y1-rp.ys*rp.vs*float32(rp.tile.yspacing)
+			x4, y4 = x1, y1-rp.ys*rp.vs*((float32(rp.tile.yspacing)+float32(rp.size[1]))/rp.yas-float32(rp.size[1]))
 			x3, y3 = x2, y4
 			x2 = x1 + rp.rxadd*rp.ys*float32(rp.size[1]) + (rp.xbs/rp.xts)*(x2-x1)
 			y2 = y3 - rp.ys*rp.vs*float32(rp.size[1])
@@ -797,6 +843,7 @@ func drawQuadsBatch(rd *RenderUniformData, modelview mgl.Mat4, x1, y1, x2, y2, x
 			x3, y3, 1, 0,
 			x4, y4, 0, 0,
 		})
+		rd.fragUniforms.x1x2x4x3 = [4]float32{x1, x2, x4, x3}
 		rd.modelView = modelview
 		rd.vertUniforms.Modelview = modelview
 	}
@@ -850,11 +897,9 @@ func CalculateRectData(rect [4]int32, color uint32, trans int32) {
 		rd.fragUniforms.tint = [4]float32{r, g, b, a}
 		rd.vertUniforms.Projection = proj
 		rd.vertUniforms.Modelview = modelview
-
-		BatchParam(&rd)
 		rd.seqNo = batchRenderer.state.curSDRSeqNo
-
 		batchRenderer.state.curSDRSeqNo++
+		BatchParam(&rd)
 	}, trans, true, 0, nil, nil, nil, false)
 }
 

@@ -11,17 +11,6 @@ const uint NEG_BIT = uint(3);      // neg
 #endif 
 uniform sampler2DArray palArray;
 
-struct IndexUniforms {
-	int fragUniformIndex; 
-	int vertexUniformIndex;
-	int palLayer; 
-	int texLayer;
-};
-
-layout (std140) uniform IndexUniformBlock {
-    uvec4 indexMask[1024];
-};
-
 // Structured in this weird way to avoid padding 
 struct FragmentUniforms {
     vec4 x1x2x4x3;
@@ -36,11 +25,11 @@ struct FragmentUniforms {
 };
 
 layout (std140) uniform FragmentUniformBlock {
-    FragmentUniforms fragmentUniforms[64]; 
+    FragmentUniforms fragmentUniforms[128]; 
 };
 
 in vec2 texcoord;
-flat in int idx;
+flat in uint idx;
 out vec4 FragColor;
 
 vec3 hue_shift(vec3 color, float dhue) {
@@ -54,15 +43,13 @@ vec3 hue_shift(vec3 color, float dhue) {
 }
 
 void main(void) {
-	int uniformBlockIndex = idx / 4;
-	int uniformElementIndex = idx % 4; 
 
-	uint packedIndex = indexMask[uniformBlockIndex][uniformElementIndex]; 
+	uint packedIndex = idx; 
 
-	uint vertexUniformIndex = packedIndex & uint(0x1F);                  
-	uint fragmentUniformIndex = (packedIndex >> 5) & uint(0x3F);         
-	uint palLayer = (packedIndex >> 11) & uint(0x1FF);                   
-	uint texLayer = (packedIndex >> 20) & uint(0x7F);                    
+    uint vertexUniformIndex = packedIndex & uint(0x1F);              // 5 bits for VertexUniformIndex
+    uint fragmentUniformIndex = (packedIndex >> 5) & uint(0x7F);     // 7 bits for FragUniformIndex
+    uint palLayer = (packedIndex >> 12) & uint(0x1FF);               // 9 bits for PalLayer
+    uint texLayer = (packedIndex >> 21) & uint(0x3F);                // 6 bits for TexLayer
 
     vec4 x1x2x4x3 = fragmentUniforms[fragmentUniformIndex].x1x2x4x3;
 	vec4 tint = fragmentUniforms[fragmentUniformIndex].tint;
@@ -104,15 +91,12 @@ void main(void) {
 			final_add *= c.a;
 			final_mul.rgb *= alpha;
 		} else {
-			// Colormap sprites use the old “buggy” Mugen way
-			if (int(255.25*c.r) == mask) {
-				final_mul = vec4(0.0);
-			} else {
-				// c = texture2D(pal, vec2(c.r*0.9966, 0.5));
-				c = texture(palArray, vec3(c.r * 0.9966, 0.5, float(palLayer)));
+			c = texture(palArray, vec3(c.r * 0.9966, 0.5, float(palLayer)));
+			if (mask == -1) {
+				c.a = 1.0;
 			}
 		}
-		if (hue != float(0)) {
+		if (hue != 0) {
 			c.rgb = hue_shift(c.rgb,hue);			
 		}
 		if (neg) c.rgb = neg_base - c.rgb;

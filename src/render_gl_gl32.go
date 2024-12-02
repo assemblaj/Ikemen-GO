@@ -519,7 +519,6 @@ func (r *Renderer) Init() {
 	r.enableShadow = sys.enableModelShadow
 
 	gl.GenVertexArrays(1, &r.vao)
-	gl.BindVertexArray(r.vao)
 
 	r.InitBatchRenderState()
 
@@ -666,6 +665,7 @@ func (r *Renderer) Init() {
 		gl.GenFramebuffers(1, &r.fbo_env)
 	}
 	gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
+	gl.BindVertexArray(r.vao)
 }
 
 func (r *Renderer) Close() {
@@ -737,7 +737,7 @@ func (r *Renderer) EndFrame() {
 	gl.DisableVertexAttribArray(uint32(loc))
 
 	// r.SwitchBuffer()
-	//gl.BindVertexArray(0)
+	gl.BindVertexArray(0)
 }
 
 func (r *Renderer) SetPipeline(eq BlendEquation, src, dst BlendFunc) {
@@ -755,16 +755,22 @@ func (r *Renderer) SetPipeline(eq BlendEquation, src, dst BlendFunc) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 	loc := r.spriteShader.a["position"]
 	gl.EnableVertexAttribArray(uint32(loc))
-	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 16, 0)
+	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 20, 0)
 	loc = r.spriteShader.a["uv"]
 	gl.EnableVertexAttribArray(uint32(loc))
-	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 16, 8)
+	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 20, 8)
+	loc = r.spriteShader.a["index"]
+	gl.EnableVertexAttribArray(uint32(loc))
+	gl.VertexAttribPointerWithOffset(uint32(loc), 1, gl.FLOAT, false, 20, 16)
+
 }
 
 func (r *Renderer) ReleasePipeline() {
 	loc := r.spriteShader.a["position"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.spriteShader.a["uv"]
+	gl.DisableVertexAttribArray(uint32(loc))
+	loc = r.spriteShader.a["index"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.Disable(gl.BLEND)
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
@@ -1383,21 +1389,21 @@ func (r *Renderer) InitBatchRendererBuffers() {
 
 	gl.GenBuffers(1, &batchRenderer.fragUbo)
 	gl.BindBuffer(gl.UNIFORM_BUFFER, batchRenderer.fragUbo)
-	gl.BufferData(gl.UNIFORM_BUFFER, int(64*96), nil, gl.STATIC_DRAW)
+	gl.BufferData(gl.UNIFORM_BUFFER, int(128*96), nil, gl.STATIC_DRAW)
 
 	gl.GenBuffers(1, &batchRenderer.vertUbo)
 	gl.BindBuffer(gl.UNIFORM_BUFFER, batchRenderer.vertUbo)
 	gl.BufferData(gl.UNIFORM_BUFFER, int(32*unsafe.Sizeof(VertexUniforms{})), nil, gl.STATIC_DRAW)
 
-	gl.GenBuffers(1, &batchRenderer.indexUbo)
-	gl.BindBuffer(gl.UNIFORM_BUFFER, batchRenderer.indexUbo)
-	gl.BufferData(gl.UNIFORM_BUFFER, int(4096*4), nil, gl.STATIC_DRAW)
+	//gl.GenBuffers(1, &batchRenderer.indexUbo)
+	//gl.BindBuffer(gl.UNIFORM_BUFFER, batchRenderer.indexUbo)
+	//gl.BufferData(gl.UNIFORM_BUFFER, int(4096*4), nil, gl.STATIC_DRAW)
 
 }
 
 func (r *Renderer) SetVertexData(values ...float32) {
 	data := batchF32Encode(values)
-	gl.BindBuffer(gl.ARRAY_BUFFER, batchRenderer.curVertexBuffer)
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
 }
 
@@ -1456,6 +1462,10 @@ func (r *Renderer) SwitchBuffer() {
 }
 
 func (r *Renderer) UploadFragmentUBO(uniforms []FragmentUniforms) {
+	if len(uniforms) == 0 {
+		return
+	}
+
 	buf := make([]byte, 0, 96*len(uniforms))
 	for i := 0; i < len(uniforms); i++ {
 		buf = append(buf, uniforms[i].ToBytes()...)
@@ -1488,7 +1498,7 @@ func (r *Renderer) UploadIndexUniformUBO(uniforms []IndexUniforms) {
 func (r *Renderer) BindUBOs() {
 	gl.BindBufferBase(gl.UNIFORM_BUFFER, 0, batchRenderer.fragUbo)
 	gl.BindBufferBase(gl.UNIFORM_BUFFER, 1, batchRenderer.vertUbo)
-	gl.BindBufferBase(gl.UNIFORM_BUFFER, 2, batchRenderer.indexUbo)
+	// gl.BindBufferBase(gl.UNIFORM_BUFFER, 2, batchRenderer.indexUbo)
 }
 
 func (r *Renderer) InitPaletteTextureArray() {
@@ -1517,15 +1527,15 @@ func (r *Renderer) InitUBOs() {
 	gl.BindBufferBase(gl.UNIFORM_BUFFER, bindingPoint, batchRenderer.vertUbo)
 	bindingPoint++
 
-	blockIndex = gl.GetUniformBlockIndex(r.spriteShader.program, glStr("IndexUniformBlock"))
-	gl.UniformBlockBinding(r.spriteShader.program, blockIndex, bindingPoint)
-	gl.BindBufferBase(gl.UNIFORM_BUFFER, bindingPoint, batchRenderer.indexUbo)
+	//blockIndex = gl.GetUniformBlockIndex(r.spriteShader.program, glStr("IndexUniformBlock"))
+	//gl.UniformBlockBinding(r.spriteShader.program, blockIndex, bindingPoint)
+	//gl.BindBufferBase(gl.UNIFORM_BUFFER, bindingPoint, batchRenderer.indexUbo)
 }
 
 func (r *Renderer) InitBatchSpriteShader() {
 	directives := []string{"#define MAX_TEXTURE_UNITS " + fmt.Sprintf("%d", batchRenderer.maxTextureUnits-1)}
 	r.spriteShader, _ = newShaderProgram(vertShader, fragShader, "", "Main Shader", true, directives)
-	r.spriteShader.RegisterAttributes("position", "uv")
+	r.spriteShader.RegisterAttributes("position", "uv", "index")
 
 	str := []string{"palArray"}
 	for i := 0; i < int(batchRenderer.maxTextureUnits)-1; i++ {
