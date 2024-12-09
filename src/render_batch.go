@@ -37,20 +37,33 @@ func NewBatchRenderingState() BatchRenderingState {
 }
 
 type BatchRenderer struct {
-	vertexBuffer2 uint32
+	spriteVertexBuffer uint32
 	// Batch Render
 	setInitialUniforms bool
 	paletteTex         uint32
 	fragUbo            uint32
 	vertUbo            uint32
 	indexUbo           uint32
-	maxTextureUnits    int32
-	curVertexBuffer    uint32
-	vertexBufferCache  map[uint64]uint32
-	lastUsedInBatch    RenderUniformData
-	palTexCache        map[uint64]*Texture
-	curLayer           int32
-	curTexLayer        int32
+
+	maxTextureUnits     int32
+	maxUniformBlockSize int32
+	vertexUniformMax    int
+	fragUniformMax      int
+	vertexUniformBits   uint32
+	fragUniformBits     uint32
+	palLayerBits        uint32
+	texLayerBits        uint32
+	vertexShift         uint32
+	fragShift           uint32
+	palShift            uint32
+	texShift            uint32
+
+	curVertexBuffer   uint32
+	vertexBufferCache map[uint64]uint32
+	lastUsedInBatch   RenderUniformData
+	palTexCache       map[uint64]*Texture
+	curLayer          int32
+	curTexLayer       int32
 
 	state BatchRenderingState
 }
@@ -142,11 +155,60 @@ type IndexUniforms struct {
 }
 
 // packIndex packs an IndexUniforms into a uint32
+// func (i *IndexUniforms) packIndex() uint32 {
+// 	return uint32((i.VertexUniformIndex & 0x1F) | // 5 bits for VertexUniformIndex
+// 		((i.FragUniformIndex & 0x7F) << 5) | // 7 bits for FragUniformIndex
+// 		((i.PalLayer & 0x1FF) << 12) | // 9 bits for PalLayer
+// 		((i.TexLayer & 0x3F) << 21)) // 6 bits for TexLayer
+// }
+
+func (b *BatchRenderer) getIndexConstants(maxUniformBlockSize int, maxTextureImageUnits int) {
+	// Calculate dynamic limits and clamp to maximum uint32 range
+	vertexUniformMax := MinI(maxUniformBlockSize/128, (1<<32)-1)
+	fragUniformMax := MinI(maxUniformBlockSize/96, (1<<32)-1)
+	texLayerMax := maxTextureImageUnits // Assume it always fits
+
+	b.vertexUniformMax = vertexUniformMax
+	b.fragUniformMax = fragUniformMax
+
+	// Calculate bit requirements
+	b.vertexUniformBits = uint32(neededBits(vertexUniformMax))
+	b.fragUniformBits = uint32(neededBits(fragUniformMax))
+	b.palLayerBits = uint32(9) // Fixed at 512 (2^9)
+	b.texLayerBits = uint32(neededBits(texLayerMax))
+
+	// Bit positions (cumulative)
+	b.vertexShift = uint32(0)
+	b.fragShift = b.vertexUniformBits
+	b.palShift = b.fragShift + b.fragUniformBits
+	b.texShift = b.palShift + b.palLayerBits
+}
+
 func (i *IndexUniforms) packIndex() uint32 {
-	return uint32((i.VertexUniformIndex & 0x1F) | // 5 bits for VertexUniformIndex
-		((i.FragUniformIndex & 0x7F) << 5) | // 7 bits for FragUniformIndex
-		((i.PalLayer & 0x1FF) << 12) | // 9 bits for PalLayer
-		((i.TexLayer & 0x3F) << 21)) // 6 bits for TexLayer
+	return uint32(
+		(i.VertexUniformIndex&((1<<batchRenderer.vertexUniformBits)-1))<<batchRenderer.vertexShift |
+			(i.FragUniformIndex&((1<<batchRenderer.fragUniformBits)-1))<<batchRenderer.fragShift |
+			(i.PalLayer&((1<<batchRenderer.palLayerBits)-1))<<batchRenderer.palShift |
+			(i.TexLayer&((1<<batchRenderer.texLayerBits)-1))<<batchRenderer.texShift,
+	)
+}
+
+// Helper function to calculate the number of bits needed for a value
+func neededBits(maxValue int) int {
+	bits := 0
+	for maxValue > 0 {
+		maxValue >>= 1
+		bits++
+	}
+	return bits
+}
+
+// Helper function to find the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (i *IndexUniforms) ToBytes() []byte {
@@ -264,7 +326,7 @@ func BatchRender() {
 	var count int32 = 0
 	totalVertices := len(vertices) / 4
 	indexUniforms := make([]IndexUniforms, 0, totalVertices)
-	packedIndexUniforms := make([]float32, 0, totalVertices)
+	packedIndexUniforms := make([]uint32, 0, totalVertices)
 
 	for i, entry := range batchRenderer.state.paramList {
 		if i == 0 {
@@ -332,28 +394,30 @@ func BatchRender() {
 			indexUniform.VertexUniformIndex = int32(vertexIndex)
 			for i := 0; i < int(numVertices); i++ {
 				indexUniforms = append(indexUniforms, indexUniform)
-				packedIndexUniforms = append(packedIndexUniforms, float32(indexUniform.packIndex()))
+				packedIndexUniforms = append(packedIndexUniforms, indexUniform.packIndex())
 			}
 		}
 	}
 
+	vertexBytes := batchF32Encode(vertices)
+	result := appendUint32ToByteFloats(vertexBytes, packedIndexUniforms)
 	// Result slice with a capacity of the combined slices
-	result := make([]float32, 0, len(vertices)+(len(packedIndexUniforms)*1))
+	// result := make([]byte, 0, len(vertices)+(len(packedIndexUniforms)*1))
 
-	// Add index after every vertex
-	for i := 0; i < len(vertices); i += 4 {
-		// Append vertex components
-		result = append(result, vertices[i:i+4]...)
+	// // Add index after every vertex
+	// for i := 0; i < len(vertices); i += 4 {
+	// 	// Append vertex components
+	// 	result = append(result, vertices[i:i+4]...)
 
-		// Append corresponding index (converted to float32)
-		if i/4 < len(packedIndexUniforms) {
-			result = append(result, float32(packedIndexUniforms[i/4]))
-		}
-	}
-
-	// gfx.UploadIndexUniformUBOClustered(indexUniforms)
-	// Set the global vertex data once.
-	gfx.SetVertexData(result...)
+	// 	// Append corresponding index (converted to float32)
+	// 	if i/4 < len(packedIndexUniforms) {
+	// 		result = append(result, float32(packedIndexUniforms[i/4]))
+	// 	}
+	// }
+	// // gfx.UploadIndexUniformUBOClustered(indexUniforms)
+	// // Set the global vertex data once.
+	// gfx.SetVertexData(result...)
+	gfx.SetVertexBytes(result)
 
 	// gfx.UploadIndexUniformUBO(indexUniforms)
 	gfx.UploadFragmentUBO(uniqueFrags)
@@ -373,16 +437,42 @@ func BatchRender() {
 	// Reset state after processing.
 	for i := 0; i < len(batchRenderer.state.batchGlobals.vertexDataBuffer); i++ {
 		batchRenderer.state.batchGlobals.vertexDataBuffer[i] = batchRenderer.state.batchGlobals.vertexDataBuffer[i][:0]
-		// Could be problem
-		for _, buffer := range batchRenderer.state.batchGlobals.vertexCacheBuffer {
-			for value := range buffer {
-				delete(buffer, value)
-			}
+		for key := range batchRenderer.state.batchGlobals.vertexCacheBuffer[i] {
+			delete(batchRenderer.state.batchGlobals.vertexCacheBuffer[i], key)
 		}
 	}
 	batchRenderer.state.paramList = batchRenderer.state.paramList[:0]
 	batchRenderer.state.batchGlobals.vertexDataBufferCounter = 0
 	batchRenderer.state.curSDRSeqNo = 0
+}
+
+func appendUint32ToByteFloats(floatBytes []byte, uintData []uint32) []byte {
+	// Ensure the floatBytes length is a multiple of 16 (4 floats)
+	if len(floatBytes)%16 != 0 {
+		panic("floatBytes length must be a multiple of 16 (4 floats per uint32)")
+	}
+
+	// Ensure there are enough uint32 values
+	if len(uintData)*16 != len(floatBytes) {
+		panic("uintData must have enough entries to match every 4 floats in floatBytes")
+	}
+
+	// Create a buffer to hold the resulting byte data
+	var result bytes.Buffer
+
+	floatIndex := 0
+	uintIndex := 0
+	for floatIndex < len(floatBytes) {
+		// Write 16 bytes (4 floats)
+		result.Write(floatBytes[floatIndex : floatIndex+16])
+		floatIndex += 16
+
+		// Write 4 bytes (1 uint32)
+		binary.Write(&result, binary.LittleEndian, uintData[uintIndex])
+		uintIndex++
+	}
+
+	return result.Bytes()
 }
 
 func processBatches(batches [][]RenderUniformData) [][]RenderUniformData {
@@ -502,6 +592,52 @@ func (r *RenderUniformData) Serialize() ([]byte, error) {
 	if err := binary.Write(buf, binary.LittleEndian, int32(r.dst)); err != nil {
 		return nil, err
 	}
+	// if err := binary.Write(buf, binary.LittleEndian, int32(r.isRgba)); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, r.mask); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, int32(r.isTropez)); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, int32(r.isFlat)); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, int32(r.neg)); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, r.grayscale); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, r.hue); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, r.padd[:]); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, r.pmul[:]); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, r.tint[:]); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, r.alpha); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, r.modelView[:]); err != nil {
+	// 	return nil, err
+	// }
+	// if err := binary.Write(buf, binary.LittleEndian, r.trans); err != nil {
+	// 	return nil, err
+	// }
+	// // if err := binary.Write(buf, binary.LittleEndian, r.invblend); err != nil {
+	// // 	return nil, err
+	// // }
+	if err := binary.Write(buf, binary.LittleEndian, r.palLayer); err != nil {
+		return nil, err
+	}
+
 	if err := binary.Write(buf, binary.LittleEndian, r.isTTF); err != nil {
 		return nil, err
 	}
@@ -631,15 +767,15 @@ func BatchParam(rp *RenderUniformData) {
 }
 
 func (r *RenderUniformData) AppendVertexData(vertices []float32) {
-	// data := batchF32Encode(vertices)
+	data := batchF32Encode(vertices)
 
-	// hash := xxhash.Sum64(data)
-	// if _, ok := r.vertexDataCache[hash]; !ok {
-	r.vertexData = append(r.vertexData, vertices...)
-	// r.vertexDataCache[hash] = true
-	// } else {
-	// 	fmt.Println("I'm actually using the cache.")
-	// }
+	hash := xxhash.Sum64(data)
+	if _, ok := r.vertexDataCache[hash]; !ok {
+		r.vertexData = append(r.vertexData, vertices...)
+		r.vertexDataCache[hash] = true
+	} else {
+		// fmt.Println("I'm actually using the cache.")
+	}
 }
 
 // Render a quad with optional horizontal tiling

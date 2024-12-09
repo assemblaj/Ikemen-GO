@@ -1802,6 +1802,7 @@ func (s *System) draw(x, y, scl float32) {
 				c = uint32(rgb[2] | rgb[1]<<8 | rgb[0]<<16)
 			}
 			FillRectHelper(s.scrrect, c, 0xff)
+			RenderHelper()
 		}
 
 		// Draw normal stage background fill and elements with layerNo == -1
@@ -1815,6 +1816,7 @@ func (s *System) draw(x, y, scl float32) {
 			if s.stage.ikemenver[0] != 0 || s.stage.ikemenver[1] != 0 { // This layer did not render in Mugen
 				s.stage.draw(-1, bgx, bgy, scl)
 			}
+			RenderHelper()
 		}
 
 		// Draw reflections on layer -1
@@ -1883,11 +1885,11 @@ func (s *System) draw(x, y, scl float32) {
 		s.lifebar.draw(-1)
 		s.lifebar.draw(0)
 	}
+	RenderHelper()
 	// Draw EnvColor effect
 	if s.envcol_time != 0 {
 		FillRectHelper(s.scrrect, ecol, 255)
 	}
-
 	// Draw character sprites in layer 0
 	if s.envcol_time == 0 || s.envcol_under {
 		s.spritesLayer0.draw(x, y, scl*s.cam.BaseScale())

@@ -7,6 +7,8 @@ github.com/assemblaj/glfont v0.0.0-20241126162135-24ea288f7727 h1:zH13NpSeS8hmX9
 github.com/assemblaj/glfont v0.0.0-20241126162135-24ea288f7727/go.mod h1:mANzFf/oI0nHmhImB7GWXFHaJUs2LIW+Py1GyRSAjIk=
 github.com/assemblaj/glfont v0.0.0-20241127123931-9e46299c2ce0 h1:4tVHppozubXvwyZmvDUM+qRjhI5bnftM/EInPLQwj5s=
 github.com/assemblaj/glfont v0.0.0-20241127123931-9e46299c2ce0/go.mod h1:mANzFf/oI0nHmhImB7GWXFHaJUs2LIW+Py1GyRSAjIk=
+github.com/assemblaj/glfont v0.0.0-20241206175920-f8135092ddd3 h1:sF9CoEbDJRKvqUOR8/ysjRAjaUHWeIJyyeO6jw/e+Ow=
+github.com/assemblaj/glfont v0.0.0-20241206175920-f8135092ddd3/go.mod h1:mANzFf/oI0nHmhImB7GWXFHaJUs2LIW+Py1GyRSAjIk=
 github.com/assemblaj/glh v0.0.0-20241127093815-a55004836497 h1:hjQlKjXEmZYu+2k3AKeSIJ8bMusQeNVRGt6a2eVbBoM=
 github.com/assemblaj/glh v0.0.0-20241127093815-a55004836497/go.mod h1:zOkMU61wzplbdVYX+sPWA4TmvPn6KNsI/3N8HsMKrok=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=

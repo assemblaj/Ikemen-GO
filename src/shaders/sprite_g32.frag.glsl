@@ -25,7 +25,7 @@ struct FragmentUniforms {
 };
 
 layout (std140) uniform FragmentUniformBlock {
-    FragmentUniforms fragmentUniforms[128]; 
+    FragmentUniforms fragmentUniforms[MAX_UNIFORM_BLOCK_SIZE / 96]; 
 };
 
 in vec2 texcoord;
@@ -42,14 +42,23 @@ vec3 hue_shift(vec3 color, float dhue) {
 	) + dot(vec3(0.299, 0.587, 0.114), color) * (1.0 - c);
 }
 
+void unpackIndex(uint packedIndex, out uint vertexUniformIndex, out uint fragUniformIndex, out uint palLayer, out uint texLayer) {
+    vertexUniformIndex = (packedIndex >> VERTEX_SHIFT_BATCH) & ((1u << VERTEX_UNIFORM_BITS_BATCH) - 1u);
+    fragUniformIndex = (packedIndex >> FRAG_SHIFT_BATCH) & ((1u << FRAG_UNIFORM_BITS_BATCH) - 1u);
+    palLayer = (packedIndex >> PAL_SHIFT_BATCH) & ((1u << PAL_LAYER_BITS_BATCH) - 1u);
+    texLayer = (packedIndex >> TEX_SHIFT_BATCH) & ((1u << TEX_LAYER_BITS_BATCH) - 1u);
+}
+
 void main(void) {
 
 	uint packedIndex = idx; 
 
-    uint vertexUniformIndex = packedIndex & uint(0x1F);              // 5 bits for VertexUniformIndex
-    uint fragmentUniformIndex = (packedIndex >> 5) & uint(0x7F);     // 7 bits for FragUniformIndex
-    uint palLayer = (packedIndex >> 12) & uint(0x1FF);               // 9 bits for PalLayer
-    uint texLayer = (packedIndex >> 21) & uint(0x3F);                // 6 bits for TexLayer
+	uint vertexUniformIndex;
+    uint fragmentUniformIndex;
+    uint palLayer;
+    uint texLayer;
+
+    unpackIndex(packedIndex, vertexUniformIndex, fragmentUniformIndex, palLayer, texLayer);
 
     vec4 x1x2x4x3 = fragmentUniforms[fragmentUniformIndex].x1x2x4x3;
 	vec4 tint = fragmentUniforms[fragmentUniformIndex].tint;

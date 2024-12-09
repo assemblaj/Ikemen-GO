@@ -21,7 +21,7 @@ require (
 
 require (
 	github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d // indirect
-	github.com/assemblaj/glfont v0.0.0-20241127123931-9e46299c2ce0 // indirect
+	github.com/assemblaj/glfont v0.0.0-20241206175920-f8135092ddd3 // indirect
 	github.com/assemblaj/glh v0.0.0-20241127093815-a55004836497 // indirect
 	github.com/ebitengine/oto/v3 v3.2.0 // indirect
 	github.com/ebitengine/purego v0.7.1 // indirect
