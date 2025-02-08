@@ -1312,6 +1312,6 @@ func DrawTtfHelper(ttf *TtfFont) {
 func RenderHelper() {
 	return
 }
-func RenderCacheResetHelper() {
+func RenderCacheResetHelper(preFight bool) {
 	return
 }

@@ -675,7 +675,6 @@ func (s *System) resetRemapInput() {
 }
 func (s *System) loaderReset() {
 	s.round, s.wins, s.roundsExisted, s.roundType = 1, [2]int32{}, [2]int32{}, [2]RoundType{}
-	RenderCacheResetHelper()
 	s.loader.reset()
 }
 func (s *System) loadStart() {

@@ -45,6 +45,8 @@ type BatchRenderer struct {
 	vertUbo            uint32
 	indexUbo           uint32
 
+	paletteTextureLocation uint32
+
 	maxTextureUnits     int32
 	maxUniformBlockSize int32
 	vertexUniformMax    int
@@ -64,6 +66,7 @@ type BatchRenderer struct {
 	palTexCache       map[uint64]*Texture
 	curLayer          int32
 	curTexLayer       int32
+	preFightLayer     int32
 
 	state BatchRenderingState
 }
@@ -398,40 +401,73 @@ func BatchRender() {
 			}
 		}
 	}
+	// maxVertices := 10000
+	// batchCycles := (len(vertices) / 4) / maxVertices
 
-	vertexBytes := batchF32Encode(vertices)
-	result := appendUint32ToByteFloats(vertexBytes, packedIndexUniforms)
-	// Result slice with a capacity of the combined slices
-	// result := make([]byte, 0, len(vertices)+(len(packedIndexUniforms)*1))
+	// vertexBytes := batchF32Encode(vertices)
+	// result := appendUint32ToByteFloats(vertexBytes, packedIndexUniforms)
 
-	// // Add index after every vertex
-	// for i := 0; i < len(vertices); i += 4 {
-	// 	// Append vertex components
-	// 	result = append(result, vertices[i:i+4]...)
+	// gfx.SetVertexBytes(result)
 
-	// 	// Append corresponding index (converted to float32)
-	// 	if i/4 < len(packedIndexUniforms) {
-	// 		result = append(result, float32(packedIndexUniforms[i/4]))
+	// gfx.UploadFragmentUBO(uniqueFrags)
+	// gfx.UploadVertexUBO(uniqueVertexData)
+	// gfx.BindUBOs()
+	// first = 0
+	// count = 0
+
+	// for _, batch := range batches {
+	// 	count = int32(getNumVertices2(batch))
+	// 	if count > 0 || batch[0].isTTF {
+	// 		processBatchOptimized(batch, first, count)
 	// 	}
+	// 	first += count
 	// }
-	// // gfx.UploadIndexUniformUBOClustered(indexUniforms)
-	// // Set the global vertex data once.
-	// gfx.SetVertexData(result...)
-	gfx.SetVertexBytes(result)
+	maxVertices := 50000
 
-	// gfx.UploadIndexUniformUBO(indexUniforms)
-	gfx.UploadFragmentUBO(uniqueFrags)
-	gfx.UploadVertexUBO(uniqueVertexData)
-	gfx.BindUBOs()
+	// Break vertices into manageable chunks based on maxVertices
+	chunkSize := maxVertices * 4 // Assuming 4 floats per vertex
+	numChunks := (len(vertices) + chunkSize - 1) / chunkSize
+
 	first = 0
-	count = 0
-
-	for _, batch := range batches {
-		count = int32(getNumVertices2(batch))
-		if count > 0 || batch[0].isTTF {
-			processBatchOptimized(batch, first, count)
+	for chunk := 0; chunk < numChunks; chunk++ {
+		// Calculate the range for this chunk
+		start := chunk * chunkSize
+		end := start + chunkSize
+		if end > len(vertices) {
+			end = len(vertices)
 		}
-		first += count
+
+		// Prepare the chunk of vertices
+		vertexChunk := vertices[start:end]
+		vertexBytes := batchF32Encode(vertexChunk)
+		result := appendUint32ToByteFloats(vertexBytes, packedIndexUniforms[start/4:end/4])
+
+		// Upload the chunk to the GPU
+		gfx.SetVertexBytes(result)
+
+		// Upload UBOs and bind them for this batch
+		gfx.UploadFragmentUBO(uniqueFrags)
+		gfx.UploadVertexUBO(uniqueVertexData)
+		gfx.BindUBOs()
+
+		count = int32(0)
+
+		// Process each batch within the current chunk
+		for _, batch := range batches {
+			batchStart := first
+			count = int32(getNumVertices2(batch))
+
+			if count > 0 || batch[0].isTTF {
+				processBatchOptimized(batch, batchStart, count)
+			}
+
+			first += count
+
+			// Stop processing batches if we've reached the end of this chunk
+			if first >= int32(end) {
+				break
+			}
+		}
 	}
 
 	// Reset state after processing.
@@ -1048,7 +1084,6 @@ func PaletteToTextureSub(pal []uint32) *Texture {
 	return tx
 }
 
-/* Do not be afraid of this */
 func PaletteToTextureBatch(pal []uint32) *Texture {
 	return GenerateTextureFromPalette(pal)
 }

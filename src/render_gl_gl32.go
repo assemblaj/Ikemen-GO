@@ -1379,8 +1379,18 @@ func (r *Renderer) InitBatchRenderState() {
 	// Check the maximum number of texture units
 	gl.GetIntegerv(gl.MAX_TEXTURE_IMAGE_UNITS, &batchRenderer.maxTextureUnits)
 	gl.GetIntegerv(gl.MAX_UNIFORM_BLOCK_SIZE, &batchRenderer.maxUniformBlockSize)
+	fmt.Printf("MAX_TEXTURE_IMAGE_UNITS: %d MAX_UNIFORM_BLOCK_SIZE: %d\n",
+		batchRenderer.maxTextureUnits, batchRenderer.maxUniformBlockSize)
+	if batchRenderer.maxUniformBlockSize > 65536 {
+		batchRenderer.maxUniformBlockSize = 65536
+	}
 	batchRenderer.getIndexConstants(int(batchRenderer.maxUniformBlockSize), int(batchRenderer.maxTextureUnits))
 	batchRenderer.state.maxTextures = int(batchRenderer.maxTextureUnits)
+	if batchRenderer.maxTextureUnits == 32 {
+		batchRenderer.paletteTextureLocation = gl.TEXTURE31
+	} else {
+		batchRenderer.paletteTextureLocation = gl.TEXTURE16
+	}
 	batchRenderer.vertexBufferCache = make(map[uint64]uint32)
 
 }
@@ -1512,7 +1522,7 @@ func (r *Renderer) InitPaletteTextureArray() {
 	gl.ActiveTexture(gl.TEXTURE16)
 	gl.GenTextures(1, &batchRenderer.paletteTex)
 	gl.BindTexture(gl.TEXTURE_2D_ARRAY, batchRenderer.paletteTex)
-	gl.TexImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, 256, 1, 512, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+	gl.TexImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA, 256, 1, 2048, 0, gl.RGBA, gl.UNSIGNED_BYTE, nil)
 
 	gl.TexParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
 	gl.TexParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
@@ -1586,7 +1596,7 @@ func RenderHelper() {
 }
 
 func RenderCacheResetHelper() {
-	batchRenderer.palTexCache = make(map[uint64]*Texture)
+	// batchRenderer.palTexCache = make(map[uint64]*Texture)
 	batchRenderer.vertexBufferCache = make(map[uint64]uint32)
 	batchRenderer.setInitialUniforms = true
 }
