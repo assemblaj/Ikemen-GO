@@ -292,53 +292,71 @@ const (
 	OC_const_size_depth_back
 	OC_const_size_weight
 	OC_const_size_pushfactor
-	OC_const_velocity_walk_fwd_x
-	OC_const_velocity_walk_back_x
-	OC_const_velocity_walk_up_x
-	OC_const_velocity_walk_down_x
-	OC_const_velocity_run_fwd_x
-	OC_const_velocity_run_fwd_y
-	OC_const_velocity_run_back_x
-	OC_const_velocity_run_back_y
-	OC_const_velocity_run_up_x
-	OC_const_velocity_run_up_y
-	OC_const_velocity_run_down_x
-	OC_const_velocity_run_down_y
-	OC_const_velocity_jump_y
-	OC_const_velocity_jump_neu_x
-	OC_const_velocity_jump_back_x
-	OC_const_velocity_jump_fwd_x
-	OC_const_velocity_jump_up_x
-	OC_const_velocity_jump_down_x
-	OC_const_velocity_runjump_back_x
-	OC_const_velocity_runjump_back_y
-	OC_const_velocity_runjump_y
-	OC_const_velocity_runjump_fwd_x
-	OC_const_velocity_runjump_up_x
-	OC_const_velocity_runjump_down_x
-	OC_const_velocity_airjump_y
-	OC_const_velocity_airjump_neu_x
-	OC_const_velocity_airjump_back_x
-	OC_const_velocity_airjump_fwd_x
-	OC_const_velocity_airjump_up_x
-	OC_const_velocity_airjump_down_x
-	OC_const_velocity_air_gethit_groundrecover_x
-	OC_const_velocity_air_gethit_groundrecover_y
-	OC_const_velocity_air_gethit_airrecover_mul_x
-	OC_const_velocity_air_gethit_airrecover_mul_y
 	OC_const_velocity_air_gethit_airrecover_add_x
 	OC_const_velocity_air_gethit_airrecover_add_y
 	OC_const_velocity_air_gethit_airrecover_back
-	OC_const_velocity_air_gethit_airrecover_fwd
-	OC_const_velocity_air_gethit_airrecover_up
 	OC_const_velocity_air_gethit_airrecover_down
+	OC_const_velocity_air_gethit_airrecover_fwd
+	OC_const_velocity_air_gethit_airrecover_mul_x
+	OC_const_velocity_air_gethit_airrecover_mul_y
+	OC_const_velocity_air_gethit_airrecover_up
+	OC_const_velocity_air_gethit_groundrecover_x
+	OC_const_velocity_air_gethit_groundrecover_y
 	OC_const_velocity_air_gethit_ko_add_x
 	OC_const_velocity_air_gethit_ko_add_y
 	OC_const_velocity_air_gethit_ko_ymin
-	OC_const_velocity_ground_gethit_ko_xmul
+	OC_const_velocity_airjump_back_x
+	OC_const_velocity_airjump_down_x
+	OC_const_velocity_airjump_down_y
+	OC_const_velocity_airjump_down_z
+	OC_const_velocity_airjump_fwd_x
+	OC_const_velocity_airjump_neu_x
+	OC_const_velocity_airjump_up_x
+	OC_const_velocity_airjump_up_y
+	OC_const_velocity_airjump_up_z
+	OC_const_velocity_airjump_y
 	OC_const_velocity_ground_gethit_ko_add_x
 	OC_const_velocity_ground_gethit_ko_add_y
+	OC_const_velocity_ground_gethit_ko_xmul
 	OC_const_velocity_ground_gethit_ko_ymin
+	OC_const_velocity_jump_back_x
+	OC_const_velocity_jump_down_x
+	OC_const_velocity_jump_down_y
+	OC_const_velocity_jump_down_z
+	OC_const_velocity_jump_fwd_x
+	OC_const_velocity_jump_neu_x
+	OC_const_velocity_jump_up_x
+	OC_const_velocity_jump_up_y
+	OC_const_velocity_jump_up_z
+	OC_const_velocity_jump_y
+	OC_const_velocity_run_back_x
+	OC_const_velocity_run_back_y
+	OC_const_velocity_run_down_x
+	OC_const_velocity_run_down_y
+	OC_const_velocity_run_down_z
+	OC_const_velocity_run_fwd_x
+	OC_const_velocity_run_fwd_y
+	OC_const_velocity_run_up_x
+	OC_const_velocity_run_up_y
+	OC_const_velocity_run_up_z
+	OC_const_velocity_runjump_back_x
+	OC_const_velocity_runjump_back_y
+	OC_const_velocity_runjump_down_x
+	OC_const_velocity_runjump_down_y
+	OC_const_velocity_runjump_down_z
+	OC_const_velocity_runjump_fwd_x
+	OC_const_velocity_runjump_up_x
+	OC_const_velocity_runjump_up_y
+	OC_const_velocity_runjump_up_z
+	OC_const_velocity_runjump_y
+	OC_const_velocity_walk_back_x
+	OC_const_velocity_walk_down_x
+	OC_const_velocity_walk_down_y
+	OC_const_velocity_walk_down_z
+	OC_const_velocity_walk_fwd_x
+	OC_const_velocity_walk_up_x
+	OC_const_velocity_walk_up_y
+	OC_const_velocity_walk_up_z
 	OC_const_movement_airjump_num
 	OC_const_movement_airjump_height
 	OC_const_movement_yaccel
@@ -554,20 +572,20 @@ const (
 	OC_ex_gethitvar_down_recovertime
 	OC_ex_gethitvar_guardflag
 	OC_ex_ailevelf
-	OC_ex_animframe_alphadest
-	OC_ex_animframe_angle
-	OC_ex_animframe_alphasource
-	OC_ex_animframe_group
-	OC_ex_animframe_hflip
-	OC_ex_animframe_image
-	OC_ex_animframe_time
-	OC_ex_animframe_vflip
-	OC_ex_animframe_xoffset
-	OC_ex_animframe_xscale
-	OC_ex_animframe_yoffset
-	OC_ex_animframe_yscale
-	OC_ex_animframe_numclsn1
-	OC_ex_animframe_numclsn2
+	OC_ex_animelemvar_alphadest
+	OC_ex_animelemvar_angle
+	OC_ex_animelemvar_alphasource
+	OC_ex_animelemvar_group
+	OC_ex_animelemvar_hflip
+	OC_ex_animelemvar_image
+	OC_ex_animelemvar_time
+	OC_ex_animelemvar_vflip
+	OC_ex_animelemvar_xoffset
+	OC_ex_animelemvar_xscale
+	OC_ex_animelemvar_yoffset
+	OC_ex_animelemvar_yscale
+	OC_ex_animelemvar_numclsn1
+	OC_ex_animelemvar_numclsn2
 	OC_ex_animlength
 	OC_ex_animplayerno
 	OC_ex_attack
@@ -2051,100 +2069,136 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.size.weight)
 	case OC_const_size_pushfactor:
 		sys.bcStack.PushF(c.size.pushfactor)
-	case OC_const_velocity_walk_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.walk.fwd * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_walk_back_x:
-		sys.bcStack.PushF(c.gi().velocity.walk.back * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_walk_up_x:
-		sys.bcStack.PushF(c.gi().velocity.walk.up * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_walk_down_x:
-		sys.bcStack.PushF(c.gi().velocity.walk.down * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.run.fwd[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_fwd_y:
-		sys.bcStack.PushF(c.gi().velocity.run.fwd[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_back_x:
-		sys.bcStack.PushF(c.gi().velocity.run.back[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_back_y:
-		sys.bcStack.PushF(c.gi().velocity.run.back[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_up_x:
-		sys.bcStack.PushF(c.gi().velocity.run.up[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_up_y:
-		sys.bcStack.PushF(c.gi().velocity.run.up[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_down_x:
-		sys.bcStack.PushF(c.gi().velocity.run.down[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_down_y:
-		sys.bcStack.PushF(c.gi().velocity.run.down[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_y:
-		sys.bcStack.PushF(c.gi().velocity.jump.neu[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_neu_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.neu[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_back_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.back * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.fwd * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_up_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.up * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_down_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.down * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_back_x:
-		sys.bcStack.PushF(c.gi().velocity.runjump.back[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_back_y:
-		sys.bcStack.PushF(c.gi().velocity.runjump.back[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_y:
-		sys.bcStack.PushF(c.gi().velocity.runjump.fwd[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.runjump.fwd[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_up_x:
-		sys.bcStack.PushF(c.gi().velocity.runjump.up * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_down_x:
-		sys.bcStack.PushF(c.gi().velocity.runjump.down * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_y:
-		sys.bcStack.PushF(c.gi().velocity.airjump.neu[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_neu_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.neu[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_back_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.back * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.fwd * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_up_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.up * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_down_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.down * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_groundrecover_x:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.groundrecover[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_groundrecover_y:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.groundrecover[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_airrecover_mul_x:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.mul[0])
-	case OC_const_velocity_air_gethit_airrecover_mul_y:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.mul[1])
 	case OC_const_velocity_air_gethit_airrecover_add_x:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.add[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_airrecover_add_y:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.add[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_airrecover_back:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.back * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_airrecover_fwd:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.fwd * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_airrecover_up:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.up * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_airrecover_down:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.down * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_airrecover_fwd:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.fwd * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_airrecover_mul_x:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.mul[0])
+	case OC_const_velocity_air_gethit_airrecover_mul_y:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.mul[1])
+	case OC_const_velocity_air_gethit_airrecover_up:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.up * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_groundrecover_x:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.groundrecover[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_groundrecover_y:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.groundrecover[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_ko_add_x:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.ko.add[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_ko_add_y:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.ko.add[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_ko_ymin:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.ko.ymin * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_ground_gethit_ko_xmul:
-		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.xmul)
+	case OC_const_velocity_airjump_back_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.back * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_down_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_down_y:
+		sys.bcStack.PushF(c.gi().velocity.airjump.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_down_z:
+		sys.bcStack.PushF(c.gi().velocity.airjump.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.fwd * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_neu_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.neu[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_up_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_up_y:
+		sys.bcStack.PushF(c.gi().velocity.airjump.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_up_z:
+		sys.bcStack.PushF(c.gi().velocity.airjump.up[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_y:
+		sys.bcStack.PushF(c.gi().velocity.airjump.neu[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_ground_gethit_ko_add_x:
 		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.add[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_ground_gethit_ko_add_y:
 		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.add[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_ground_gethit_ko_xmul:
+		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.xmul)
 	case OC_const_velocity_ground_gethit_ko_ymin:
 		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.ymin * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_back_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.back * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_down_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_down_y:
+		sys.bcStack.PushF(c.gi().velocity.jump.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_down_z:
+		sys.bcStack.PushF(c.gi().velocity.jump.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.fwd * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_neu_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.neu[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_up_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_up_y:
+		sys.bcStack.PushF(c.gi().velocity.jump.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_up_z:
+		sys.bcStack.PushF(c.gi().velocity.jump.up[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_y:
+		sys.bcStack.PushF(c.gi().velocity.jump.neu[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_back_x:
+		sys.bcStack.PushF(c.gi().velocity.run.back[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_back_y:
+		sys.bcStack.PushF(c.gi().velocity.run.back[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_down_x:
+		sys.bcStack.PushF(c.gi().velocity.run.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_down_y:
+		sys.bcStack.PushF(c.gi().velocity.run.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_down_z:
+		sys.bcStack.PushF(c.gi().velocity.run.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.run.fwd[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_fwd_y:
+		sys.bcStack.PushF(c.gi().velocity.run.fwd[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_up_x:
+		sys.bcStack.PushF(c.gi().velocity.run.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_up_y:
+		sys.bcStack.PushF(c.gi().velocity.run.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_up_z:
+		sys.bcStack.PushF(c.gi().velocity.run.up[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_back_x:
+		sys.bcStack.PushF(c.gi().velocity.runjump.back[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_back_y:
+		sys.bcStack.PushF(c.gi().velocity.runjump.back[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_down_x:
+		sys.bcStack.PushF(c.gi().velocity.runjump.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_down_y:
+		sys.bcStack.PushF(c.gi().velocity.runjump.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_down_z:
+		sys.bcStack.PushF(c.gi().velocity.runjump.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.runjump.fwd[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_up_x:
+		sys.bcStack.PushF(c.gi().velocity.runjump.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_up_y:
+		sys.bcStack.PushF(c.gi().velocity.runjump.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_up_z:
+		sys.bcStack.PushF(c.gi().velocity.runjump.up[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_y:
+		sys.bcStack.PushF(c.gi().velocity.runjump.fwd[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_back_x:
+		sys.bcStack.PushF(c.gi().velocity.walk.back * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_down_x:
+		sys.bcStack.PushF(c.gi().velocity.walk.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_down_y:
+		sys.bcStack.PushF(c.gi().velocity.walk.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_down_z:
+		sys.bcStack.PushF(c.gi().velocity.walk.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.walk.fwd * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_up_x:
+		sys.bcStack.PushF(c.gi().velocity.walk.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_up_y:
+		sys.bcStack.PushF(c.gi().velocity.walk.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_up_z:
+		sys.bcStack.PushF(c.gi().velocity.walk.up[2] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_movement_airjump_num:
 		sys.bcStack.PushI(c.gi().movement.airjump.num)
 	case OC_const_movement_airjump_height:
@@ -2646,85 +2700,85 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		}
 	case OC_ex_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
-	case OC_ex_animframe_alphadest:
+	case OC_ex_animelemvar_alphadest:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.DstAlpha))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_angle:
+	case OC_ex_animelemvar_angle:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushF(f.Angle)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_alphasource:
+	case OC_ex_animelemvar_alphasource:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.SrcAlpha))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_group:
+	case OC_ex_animelemvar_group:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.Group))
 		} else {
 			sys.bcStack.PushI(-1)
 		}
-	case OC_ex_animframe_hflip:
+	case OC_ex_animelemvar_hflip:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushB(f.Hscale < 0)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_image:
+	case OC_ex_animelemvar_image:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.Number))
 		} else {
 			sys.bcStack.PushI(-1)
 		}
-	case OC_ex_animframe_time:
+	case OC_ex_animelemvar_time:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(f.Time)
 		} else {
 			sys.bcStack.PushI(-1)
 		}
-	case OC_ex_animframe_vflip:
+	case OC_ex_animelemvar_vflip:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushB(f.Vscale < 0)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_xoffset:
+	case OC_ex_animelemvar_xoffset:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.Xoffset))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_xscale:
+	case OC_ex_animelemvar_xscale:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushF(f.Xscale)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_yoffset:
+	case OC_ex_animelemvar_yoffset:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.Yoffset))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_yscale:
+	case OC_ex_animelemvar_yscale:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushF(f.Yscale)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_numclsn1:
+	case OC_ex_animelemvar_numclsn1:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(len(f.Clsn1()) / 4))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_numclsn2:
+	case OC_ex_animelemvar_numclsn2:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(len(f.Clsn2()) / 4))
 		} else {
@@ -3429,10 +3483,16 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_accel_y:
 		correctScale = true
 		fallthrough
+	case OC_ex2_projvar_accel_z:
+		correctScale = true
+		fallthrough
 	case OC_ex2_projvar_vel_x:
 		correctScale = true
 		fallthrough
 	case OC_ex2_projvar_vel_y:
+		correctScale = true
+		fallthrough
+	case OC_ex2_projvar_vel_z:
 		correctScale = true
 		fallthrough
 	case OC_ex2_projvar_projstagebound:
@@ -3451,6 +3511,9 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		correctScale = true
 		fallthrough
 	case OC_ex2_projvar_remvelocity_y:
+		correctScale = true
+		fallthrough
+	case OC_ex2_projvar_remvelocity_z:
 		correctScale = true
 		fallthrough
 	case OC_ex2_projvar_projremove:
@@ -3481,6 +3544,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		fallthrough
 	case OC_ex2_projvar_velmul_y:
 		fallthrough
+	case OC_ex2_projvar_velmul_z:
+		fallthrough
 	case OC_ex2_projvar_projscale_x:
 		fallthrough
 	case OC_ex2_projvar_projscale_y:
@@ -3506,6 +3571,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_pos_x:
 		fallthrough
 	case OC_ex2_projvar_pos_y:
+		fallthrough
+	case OC_ex2_projvar_pos_z:
 		fallthrough
 	case OC_ex2_projvar_facing:
 		fallthrough
@@ -4923,7 +4990,11 @@ func (sc posSet) Run(c *Char, _ []int32) bool {
 				crun.bindPosAdd[1] = y
 			}
 		case posSet_z:
-			crun.setZ(exp[0].evalF(c) * redirscale)
+			z := exp[0].evalF(c) * redirscale
+			crun.setZ(z)
+			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[2])) && sys.playerID(crun.bindToId) != nil {
+				crun.bindPosAdd[2] = z
+			}
 		case posSet_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -6144,6 +6215,9 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 			e.relativePos[0] = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
 				e.relativePos[1] = exp[1].evalF(c) * redirscale
+				if len(exp) > 2 {
+					e.relativePos[2] = exp[2].evalF(c) * redirscale
+				}
 			}
 		case gameMakeAnim_random:
 			rndx := (exp[0].evalF(c) / 2) * redirscale
@@ -6151,6 +6225,10 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				rndy := (exp[1].evalF(c) / 2) * redirscale
 				e.relativePos[1] += RandF(-rndy, rndy)
+				if len(exp) > 2 {
+					rndz := (exp[2].evalF(c) / 2) * redirscale
+					e.relativePos[2] += RandF(-rndz, rndz)
+				}
 			}
 		case gameMakeAnim_under:
 			if exp[0].evalB(c) {
@@ -6793,20 +6871,14 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, id byte, exp []BytecodeExp) bool {
 
 func (sc hitDef) Run(c *Char, _ []int32) bool {
 	crun := c
-	crun.hitdef.clear(crun.localscl)
+	crun.hitdef.clear(crun, crun.localscl)
 	crun.hitdef.playerNo = sys.workingState.playerNo
-	crun.hitdef.sparkno = c.gi().data.sparkno
-	crun.hitdef.guard_sparkno = c.gi().data.guard.sparkno
-	crun.hitdef.hitsound_channel = c.gi().data.hitsound_channel
-	crun.hitdef.guardsound_channel = c.gi().data.guardsound_channel
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		if id == hitDef_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-				crun.hitdef.clear(crun.localscl)
+				crun.hitdef.clear(crun, crun.localscl)
 				crun.hitdef.playerNo = sys.workingState.playerNo
-				crun.hitdef.sparkno = c.gi().data.sparkno
-				crun.hitdef.guard_sparkno = c.gi().data.guard.sparkno
 			} else {
 				return false
 			}
@@ -6838,7 +6910,7 @@ const (
 
 func (sc reversalDef) Run(c *Char, _ []int32) bool {
 	crun := c
-	crun.hitdef.clear(crun.localscl)
+	crun.hitdef.clear(crun, crun.localscl)
 	crun.hitdef.playerNo = sys.workingState.playerNo
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -6847,7 +6919,7 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 		case reversalDef_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-				crun.hitdef.clear(crun.localscl)
+				crun.hitdef.clear(crun, crun.localscl)
 				crun.hitdef.playerNo = sys.workingState.playerNo
 			} else {
 				return false
@@ -7908,25 +7980,28 @@ func (sc width) Run(c *Char, _ []int32) bool {
 	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
-		case width_edge:
-			crun.setFEdge(exp[0].evalF(c) * redirscale)
-			if len(exp) > 1 {
-				crun.setBEdge(exp[1].evalF(c) * redirscale)
-			}
 		case width_player:
-			crun.setFWidth(exp[0].evalF(c) * redirscale)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				crun.setBWidth(exp[1].evalF(c) * redirscale)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setWidth(v1*redirscale, v2*redirscale)
+		case width_edge:
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
+			if len(exp) > 1 {
+				v2 = exp[1].evalF(c)
+			}
+			crun.setWidthEdge(v1*redirscale, v2*redirscale)
 		case width_value:
-			v1 := exp[0].evalF(c) * redirscale
-			crun.setFEdge(v1)
-			crun.setFWidth(v1)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				v2 := exp[1].evalF(c) * redirscale
-				crun.setBEdge(v2)
-				crun.setBWidth(v2)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setWidth(v1*redirscale, v2*redirscale)
+			crun.setWidthEdge(v1*redirscale, v2*redirscale)
 		case width_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -11963,10 +12038,12 @@ func (sc height) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case height_value:
-			crun.setTHeight(exp[0].evalF(c) * redirscale)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				crun.setBHeight(exp[1].evalF(c) * redirscale)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setHeight(v1*redirscale, v2*redirscale)
 		case height_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -11994,25 +12071,28 @@ func (sc depth) Run(c *Char, _ []int32) bool {
 	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
-		case depth_edge:
-			crun.setFDepthEdge(exp[0].evalF(c) * redirscale)
-			if len(exp) > 1 {
-				crun.setBDepthEdge(exp[1].evalF(c) * redirscale)
-			}
 		case depth_player:
-			crun.setFDepth(exp[0].evalF(c) * redirscale)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				crun.setBDepth(exp[1].evalF(c) * redirscale)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setDepth(v1*redirscale, v2*redirscale)
+		case depth_edge:
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
+			if len(exp) > 1 {
+				v2 = exp[1].evalF(c)
+			}
+			crun.setDepthEdge(v1*redirscale, v2*redirscale)
 		case depth_value:
-			v1 := exp[0].evalF(c) * redirscale
-			crun.setFDepthEdge(v1)
-			crun.setFDepth(v1)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				v2 := exp[1].evalF(c) * redirscale
-				crun.setBDepthEdge(v2)
-				crun.setBDepth(v2)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setDepth(v1*redirscale, v2*redirscale)
+			crun.setDepthEdge(v1*redirscale, v2*redirscale)
 		case depth_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

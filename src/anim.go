@@ -698,15 +698,16 @@ func (a *Animation) drawSub1(angle, facing float32) (h, v, agl float32) {
 
 func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 	rxadd float32, rot Rotation, rcx float32, pfx *PalFX, old bool, facing float32,
-	isReflection bool, airOffsetFix [2]float32, projectionMode int32, fLength float32, color uint32) {
+	airOffsetFix [2]float32, projectionMode int32, fLength float32, color uint32, isReflection bool) {
 
 	// Skip blank animations
 	if a == nil || a.isBlank() {
 		return
 	}
 
+	// Determine animation angle. Invert for reflection
 	h, v, angle := a.drawSub1(rot.angle, facing)
-	if isReflection {
+	if isReflection && sys.stage.reflection.yscale > 0 {
 		angle = -angle
 	}
 	rot.angle = angle
@@ -808,8 +809,9 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 		return
 	}
 
+	// Determine animation angle. Invert for shadows
 	h, v, angle := a.drawSub1(rot.angle, facing)
-	rot.angle = angle
+	rot.angle = -angle
 	if yscl < 0 && rot.angle != 0 {
 		rxadd = -rxadd
 	}
@@ -1041,8 +1043,8 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		}
 
 		s.anim.Draw(drawwindow, pos[0], pos[1], cs, cs, s.scl[0], s.scl[0],
-			s.scl[1], 0, s.rot, float32(sys.gameWidth)/2, s.fx, s.oldVer, s.facing, false,
-			s.airOffsetFix, s.projection, s.fLength, 0)
+			s.scl[1], 0, s.rot, float32(sys.gameWidth)/2, s.fx, s.oldVer, s.facing,
+			s.airOffsetFix, s.projection, s.fLength, 0, false)
 
 		sys.brightness = ob
 	}
@@ -1097,15 +1099,18 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		if alpha >= 255 {
 			alpha = int32(255 - s.anim.interpolate_blend_dstalpha)
 		}
+
+		// Fading range
 		fend := float32(sys.stage.sdw.fadeend) * sys.stage.localscl
 		fbgn := float32(sys.stage.sdw.fadebgn) * sys.stage.localscl
 		if fbgn <= fend {
+			// Ignore incorrect fade effect
 		} else if s.pos[1]-s.fadeOffset <= fend {
-			continue
+			continue // Do not render shadow
 		} else if s.pos[1]-s.fadeOffset < fbgn {
-			alpha = int32(float32(alpha) *
-				(fend - (s.pos[1] - s.fadeOffset)) / (fend - fbgn))
+			alpha = int32(float32(alpha) * (fend - (s.pos[1] - s.fadeOffset)) / (fend - fbgn))
 		}
+
 		if color < 0 {
 			color = int32(sys.stage.sdw.color)
 			if alpha < 255 {
@@ -1116,18 +1121,27 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		}
 		color = color&0xff*alpha<<8&0xff0000 |
 			color&0xff00*alpha>>8&0xff00 | color&0xff0000*alpha>>24&0xff
+
 		xshear := sys.stage.sdw.xshear
-		// Have to do it this way, -xshear results in improper behavior
-		sign := float32(1)
-		if sys.stage.sdw.yscale < 0 {
-			sign = -1
+		if sys.stage.sdw.yscale > 0 {
+			xshear = -xshear // Invert if sprite is flipped
 		}
-		xshearoff := sys.stage.sdw.offset[0]
-		xrotoff := sign * xshear * (float32(s.anim.spr.Size[1]) * s.scl[1])
+
+		offsetX := s.shadowOffset[0] + sys.stage.sdw.offset[0]
+		offsetY := s.shadowOffset[1] + sys.stage.sdw.offset[1]
+
+		// Rotation offset. Only shadow scale sign
+		xrotoff := xshear * SignF(sys.stage.sdw.yscale) * (float32(s.anim.spr.Size[1]) * s.scl[1])
+
 		if s.rot.angle != 0 {
-			xshearoff -= xrotoff
+			offsetX -= xrotoff
 		} else {
-			xshearoff += xrotoff
+			offsetX += xrotoff
+		}
+
+		// With a shearing effect, the Y position should also affect the X position
+		if xshear != 0 && s.pos[1] != 0 {
+			offsetX += -s.pos[1] * xshear * SignF(sys.stage.sdw.yscale)
 		}
 
 		drawwindow := &sys.scrrect
@@ -1144,7 +1158,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 				w[1], w[3] = w[3], w[1]
 			}
 
-			window[0] = int32((sys.cam.Offset[0] - ((x - s.pos[0] - xshearoff) * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
+			window[0] = int32((sys.cam.Offset[0] - ((x - s.pos[0] - offsetX) * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
 			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y - (s.pos[1]*sys.stage.sdw.yscale-s.shadowOffset[1])*scl + w[1]*sys.stage.sdw.yscale*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * sys.stage.sdw.yscale)
@@ -1153,9 +1167,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		}
 
 		s.anim.ShadowDraw(drawwindow,
-			sys.cam.Offset[0]-((x-s.pos[0]-s.shadowOffset[0]-xshearoff)*scl),
-			sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset()-y-
-				(s.pos[1]*sys.stage.sdw.yscale-s.shadowOffset[1]-sys.stage.sdw.offset[1])*scl,
+			sys.cam.Offset[0]-((x-s.pos[0]-offsetX)*scl),
+			sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset()-y-(s.pos[1]*sys.stage.sdw.yscale-offsetY)*scl,
 			scl*s.scl[0], scl*-s.scl[1],
 			sys.stage.sdw.yscale, xshear, s.rot,
 			s.fx, s.oldVer, uint32(color), intensity, s.facing, s.airOffsetFix, s.projection, s.fLength)
@@ -1181,7 +1194,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		if s.anim.dstAlpha < 0 {
 			s.anim.dstAlpha = 128
 		}
-		s.anim.dstAlpha = int16(Min(255, int32(s.anim.dstAlpha)+255-ref))
+		s.anim.dstAlpha = int16(Min(255, int32(s.anim.dstAlpha)+255-ref)) // TODO: This is too bright during blend interpolation
 		if s.anim.srcAlpha == 1 && s.anim.dstAlpha == 255 {
 			s.anim.srcAlpha = 0
 		}
@@ -1195,19 +1208,26 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		}
 
 		xshear := sys.stage.reflection.xshear
-		// Have to do it this way, -xshear results in improper behavior for the rotation offset
-		sign := float32(1)
-		if sys.stage.reflection.yscale < 0 {
-			sign = -1
+		if sys.stage.reflection.yscale > 0 {
+			xshear = -xshear // Invert if sprite is flipped
 		}
-		offsetX := (s.reflectOffset[0] + sys.stage.reflection.offset[0])
-		offsetY := (s.reflectOffset[1] + sys.stage.reflection.offset[1])
-		xrotoff := sign * xshear * (float32(s.anim.spr.Size[1]) * s.scl[1])
+
+		offsetX := s.reflectOffset[0] + sys.stage.reflection.offset[0]
+		offsetY := s.reflectOffset[1] + sys.stage.reflection.offset[1]
+
+		// Rotation offset
+		xrotoff := xshear * sys.stage.reflection.yscale * (float32(s.anim.spr.Size[1]) * s.scl[1])
+
 		if s.rot.angle != 0 {
 			xshear = -xshear
 			offsetX -= xrotoff
 		} else {
 			offsetX += xrotoff
+		}
+
+		// With a shearing effect, the Y position should also affect the X position
+		if xshear != 0 && s.pos[1] != 0 {
+			offsetX += -s.pos[1] * xshear * SignF(sys.stage.reflection.yscale)
 		}
 
 		drawwindow := &sys.scrrect
@@ -1238,8 +1258,8 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 				(s.pos[1]*sys.stage.reflection.yscale-offsetY),
 			scl, scl, s.scl[0], s.scl[0],
 			-s.scl[1]*sys.stage.reflection.yscale, xshear, s.rot, float32(sys.gameWidth)/2,
-			s.fx, s.oldVer, s.facing, true, s.airOffsetFix,
-			s.projection, s.fLength, color)
+			s.fx, s.oldVer, s.facing, s.airOffsetFix,
+			s.projection, s.fLength, color, true)
 	}
 }
 
@@ -1310,7 +1330,7 @@ func (a *Anim) Draw() {
 	if !sys.frameSkip {
 		a.anim.Draw(&a.window, a.x+float32(sys.gameWidth-320)/2,
 			a.y+float32(sys.gameHeight-240), 1, 1, a.xscl, a.xscl, a.yscl,
-			0, Rotation{}, 0, a.palfx, false, 1, false, [2]float32{1, 1}, 0, 0, 0)
+			0, Rotation{}, 0, a.palfx, false, 1, [2]float32{1, 1}, 0, 0, 0, false)
 	}
 }
 

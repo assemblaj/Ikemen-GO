@@ -1037,11 +1037,11 @@ func (c *Compiler) gameMakeAnim(is IniSection, sc *StateControllerBase, _ int8) 
 			return err
 		}
 		if err := c.paramValue(is, sc, "pos",
-			gameMakeAnim_pos, VT_Float, 2, false); err != nil {
+			gameMakeAnim_pos, VT_Float, 3, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "random",
-			gameMakeAnim_random, VT_Float, 2, false); err != nil {
+			gameMakeAnim_random, VT_Float, 3, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "under",
